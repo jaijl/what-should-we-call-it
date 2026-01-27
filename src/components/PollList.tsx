@@ -1,5 +1,5 @@
 import { useEffect, useState, memo } from 'react';
-import { Plus, MessageCircle, TrendingUp, Trash2 } from 'lucide-react';
+import { Plus, MessageCircle, TrendingUp, Trash2, Crown } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Poll } from '../types';
 
@@ -17,6 +17,8 @@ export const PollList = memo(function PollList({ onCreateNew, onSelectPoll }: Po
   const [polls, setPolls] = useState<PollWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [pollsCreated, setPollsCreated] = useState(0);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<string>('free');
 
   useEffect(() => {
     loadCurrentUser();
@@ -28,6 +30,17 @@ export const PollList = memo(function PollList({ onCreateNew, onSelectPoll }: Po
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setCurrentUserId(user.id);
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('polls_created, subscription_status')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (profile) {
+          setPollsCreated(profile.polls_created || 0);
+          setSubscriptionStatus(profile.subscription_status || 'free');
+        }
       }
     } catch (error) {
       console.error('Error loading current user:', error);
@@ -106,6 +119,39 @@ export const PollList = memo(function PollList({ onCreateNew, onSelectPoll }: Po
           New Poll
         </button>
       </div>
+
+      {subscriptionStatus === 'active' ? (
+        <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-xl p-4 mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center flex-shrink-0">
+              <Crown className="w-5 h-5 text-white" />
+            </div>
+            <div className="flex-1">
+              <div className="font-semibold text-gray-900">Premium Member</div>
+              <div className="text-sm text-gray-600">Create unlimited polls</div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-4 mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-semibold text-gray-900">
+                {pollsCreated}/2 Free Polls Used
+              </div>
+              <div className="text-sm text-gray-600">Upgrade for unlimited polls</div>
+            </div>
+            {pollsCreated >= 2 && (
+              <button
+                onClick={onCreateNew}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+              >
+                Upgrade Now
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {polls.length === 0 ? (
         <div className="bg-white rounded-2xl shadow-lg p-12 text-center">

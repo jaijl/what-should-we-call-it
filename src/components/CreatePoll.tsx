@@ -1,6 +1,7 @@
-import { useState, memo } from 'react';
+import { useState, memo, useEffect } from 'react';
 import { Plus, X, Sparkles } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { SubscriptionGate } from './SubscriptionGate';
 
 interface CreatePollProps {
   onPollCreated: (pollId: string) => void;
@@ -11,6 +12,58 @@ export const CreatePoll = memo(function CreatePoll({ onPollCreated, onCancel }: 
   const [title, setTitle] = useState('');
   const [options, setOptions] = useState(['', '']);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showGate, setShowGate] = useState(false);
+  const [pollsCreated, setPollsCreated] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    checkSubscriptionStatus();
+  }, []);
+
+  const checkSubscriptionStatus = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        setIsLoading(false);
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('polls_created, subscription_status')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (profile) {
+        setPollsCreated(profile.polls_created || 0);
+        const isSubscribed = profile.subscription_status === 'active';
+        const hasReachedLimit = (profile.polls_created || 0) >= 2;
+
+        if (!isSubscribed && hasReachedLimit) {
+          setShowGate(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking subscription:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
+          <div className="text-gray-600">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (showGate) {
+    return <SubscriptionGate pollsCreated={pollsCreated} onCancel={onCancel} />;
+  }
 
   const addOption = () => {
     setOptions([...options, '']);
