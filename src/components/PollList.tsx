@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, MessageCircle, TrendingUp } from 'lucide-react';
+import { Plus, MessageCircle, TrendingUp, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Poll } from '../types';
 
@@ -53,6 +53,23 @@ export function PollList({ onCreateNew, onSelectPoll }: PollListProps) {
     }
   };
 
+  const handleDeletePoll = async (e: React.MouseEvent, pollId: string) => {
+    e.stopPropagation();
+
+    if (!confirm('Delete this poll?')) return;
+
+    try {
+      const { error } = await supabase.from('polls').delete().eq('id', pollId);
+
+      if (error) throw error;
+
+      loadPolls();
+    } catch (error) {
+      console.error('Error deleting poll:', error);
+      alert('Failed to delete poll');
+    }
+  };
+
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto">
@@ -95,26 +112,44 @@ export function PollList({ onCreateNew, onSelectPoll }: PollListProps) {
       ) : (
         <div className="grid gap-4">
           {polls.map((poll) => (
-            <button
+            <div
               key={poll.id}
-              onClick={() => onSelectPoll(poll.id)}
-              className="bg-white rounded-xl shadow-sm hover:shadow-md p-6 text-left transition-all border border-gray-100 hover:border-blue-200"
+              className="bg-white rounded-xl shadow-sm hover:shadow-md p-6 transition-all border border-gray-100 hover:border-blue-200 group"
             >
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">{poll.title}</h3>
-              <div className="flex items-center gap-6 text-sm text-gray-600">
-                <div className="flex items-center gap-2">
-                  <MessageCircle className="w-4 h-4" />
-                  <span>{poll.optionCount} options</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4" />
-                  <span>{poll.voteCount} votes</span>
-                </div>
-                <div className="ml-auto text-xs text-gray-500">
-                  {new Date(poll.created_at).toLocaleDateString()}
-                </div>
+              <div className="flex justify-between items-start mb-3">
+                <button
+                  onClick={() => onSelectPoll(poll.id)}
+                  className="flex-1 text-left"
+                >
+                  <h3 className="text-lg font-semibold text-gray-900">{poll.title}</h3>
+                </button>
+                <button
+                  onClick={(e) => handleDeletePoll(e, poll.id)}
+                  className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                  title="Delete poll"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
-            </button>
+              <button
+                onClick={() => onSelectPoll(poll.id)}
+                className="w-full text-left"
+              >
+                <div className="flex items-center gap-6 text-sm text-gray-600">
+                  <div className="flex items-center gap-2">
+                    <MessageCircle className="w-4 h-4" />
+                    <span>{poll.optionCount} options</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4" />
+                    <span>{poll.voteCount} votes</span>
+                  </div>
+                  <div className="ml-auto text-xs text-gray-500">
+                    {new Date(poll.created_at).toLocaleDateString()}
+                  </div>
+                </div>
+              </button>
+            </div>
           ))}
         </div>
       )}

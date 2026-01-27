@@ -143,11 +143,60 @@ export function PollView({ pollId, onBack }: PollViewProps) {
 
       <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
         <div className="bg-gradient-to-r from-blue-500 to-cyan-500 px-8 py-6">
-          <h1 className="text-2xl font-bold text-white mb-2">{poll.title}</h1>
-          <div className="flex items-center gap-2 text-blue-100">
-            <Users className="w-4 h-4" />
-            <span className="text-sm">{totalVotes} {totalVotes === 1 ? 'vote' : 'votes'}</span>
-          </div>
+          {isEditing ? (
+            <div className="space-y-3">
+              <input
+                type="text"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                className="w-full px-4 py-2 rounded-lg text-gray-900 font-bold text-2xl"
+                onKeyDown={(e) => e.key === 'Enter' && handleUpdateTitle()}
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={handleUpdateTitle}
+                  className="px-4 py-2 bg-white text-blue-600 rounded-lg font-medium hover:bg-blue-50 transition-colors"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => {
+                    setIsEditing(false);
+                    setEditTitle(poll.title);
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex justify-between items-start mb-2">
+                <h1 className="text-2xl font-bold text-white flex-1">{poll.title}</h1>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    className="p-2 text-white hover:bg-blue-600 rounded-lg transition-colors"
+                    title="Edit poll"
+                  >
+                    <Edit2 className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="p-2 text-white hover:bg-red-600 rounded-lg transition-colors"
+                    title="Delete poll"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-blue-100">
+                <Users className="w-4 h-4" />
+                <span className="text-sm">{totalVotes} {totalVotes === 1 ? 'vote' : 'votes'}</span>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="p-8">
@@ -208,16 +257,28 @@ export function PollView({ pollId, onBack }: PollViewProps) {
           )}
 
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Results</h3>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Results</h3>
+            </div>
+
             {options.map((option) => {
               const percentage = totalVotes > 0 ? (option.voteCount / totalVotes) * 100 : 0;
               return (
                 <div key={option.id} className="space-y-2">
                   <div className="flex justify-between items-center">
                     <span className="font-medium text-gray-900">{option.name}</span>
-                    <span className="text-sm text-gray-600">
-                      {option.voteCount} {option.voteCount === 1 ? 'vote' : 'votes'}
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-gray-600">
+                        {option.voteCount} {option.voteCount === 1 ? 'vote' : 'votes'}
+                      </span>
+                      <button
+                        onClick={() => handleDeleteOption(option.id)}
+                        className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
+                        title="Delete option"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                   <div className="relative w-full h-3 bg-gray-200 rounded-full overflow-hidden">
                     <div
@@ -243,9 +304,57 @@ export function PollView({ pollId, onBack }: PollViewProps) {
                 </div>
               );
             })}
+
+            <div className="pt-4 border-t border-gray-200">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newOptionName}
+                  onChange={(e) => setNewOptionName(e.target.value)}
+                  placeholder="Add new option..."
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddOption()}
+                />
+                <button
+                  onClick={handleAddOption}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <div className="flex items-center gap-3 mb-4 text-red-600">
+              <Trash2 className="w-6 h-6" />
+              <h3 className="text-xl font-bold">Delete Poll?</h3>
+            </div>
+            <p className="text-gray-600 mb-6">
+              This will permanently delete the poll and all its votes. This action cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={handleDeletePoll}
+                className="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
+              >
+                Delete
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 px-4 py-3 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
