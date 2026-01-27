@@ -26,18 +26,21 @@ export interface Database {
           id: string;
           poll_id: string;
           name: string;
+          user_id: string | null;
           created_at: string;
         };
         Insert: {
           id?: string;
           poll_id: string;
           name: string;
+          user_id: string;
           created_at?: string;
         };
         Update: {
           id?: string;
           poll_id?: string;
           name?: string;
+          user_id?: string;
           created_at?: string;
         };
       };
@@ -47,6 +50,7 @@ export interface Database {
           poll_id: string;
           option_id: string;
           voter_name: string | null;
+          user_id: string | null;
           created_at: string;
         };
         Insert: {
@@ -54,6 +58,7 @@ export interface Database {
           poll_id: string;
           option_id: string;
           voter_name?: string | null;
+          user_id: string;
           created_at?: string;
         };
         Update: {
@@ -61,6 +66,7 @@ export interface Database {
           poll_id?: string;
           option_id?: string;
           voter_name?: string | null;
+          user_id?: string;
           created_at?: string;
         };
       };

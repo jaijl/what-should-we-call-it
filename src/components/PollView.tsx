@@ -167,10 +167,6 @@ export function PollView({ pollId, onBack }: PollViewProps) {
   };
 
   const handleAddOption = async () => {
-    if (!isOwner) {
-      alert('Only the poll creator can add options.');
-      return;
-    }
     if (!newOptionName.trim()) return;
 
     try {
@@ -178,7 +174,8 @@ export function PollView({ pollId, onBack }: PollViewProps) {
         .from('options')
         .insert({
           poll_id: pollId,
-          name: newOptionName.trim()
+          name: newOptionName.trim(),
+          user_id: currentUserId
         });
 
       if (error) throw error;
@@ -187,15 +184,11 @@ export function PollView({ pollId, onBack }: PollViewProps) {
       loadPollData();
     } catch (error) {
       console.error('Error adding option:', error);
-      alert('Failed to add option. You can only add options to polls you created.');
+      alert('Failed to add option. Please try again.');
     }
   };
 
   const handleDeleteOption = async (optionId: string) => {
-    if (!isOwner) {
-      alert('Only the poll creator can delete options.');
-      return;
-    }
     if (!confirm('Are you sure you want to delete this option?')) return;
 
     try {
@@ -209,7 +202,7 @@ export function PollView({ pollId, onBack }: PollViewProps) {
       loadPollData();
     } catch (error) {
       console.error('Error deleting option:', error);
-      alert('Failed to delete option. You can only delete options from polls you created.');
+      alert('Failed to delete option. You can only delete options you created.');
     }
   };
 
@@ -370,16 +363,19 @@ export function PollView({ pollId, onBack }: PollViewProps) {
             )}
             {options.map((option) => {
               const isVoted = myVotes.includes(option.id);
+              const isLimitReached = myVotes.length >= 3 && !isVoted;
               return (
                 <div
                   key={option.id}
                   className={`w-full px-6 py-4 border-2 rounded-xl transition-all flex items-center justify-between ${
                     isVoted
                       ? 'border-blue-500 bg-blue-50'
+                      : isLimitReached
+                      ? 'border-gray-200 bg-gray-50 opacity-50'
                       : 'border-gray-200'
                   }`}
                 >
-                  <div className={`font-medium ${isVoted ? 'text-blue-700' : 'text-gray-900'}`}>
+                  <div className={`font-medium ${isVoted ? 'text-blue-700' : isLimitReached ? 'text-gray-400' : 'text-gray-900'}`}>
                     {option.name}
                     {isVoted && <span className="ml-2 text-sm">✓</span>}
                   </div>
@@ -394,7 +390,12 @@ export function PollView({ pollId, onBack }: PollViewProps) {
                   ) : (
                     <button
                       onClick={() => handleVote(option.id)}
-                      className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 transition-colors"
+                      disabled={isLimitReached}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        isLimitReached
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          : 'bg-blue-500 text-white hover:bg-blue-600'
+                      }`}
                     >
                       Vote
                     </button>
@@ -411,6 +412,7 @@ export function PollView({ pollId, onBack }: PollViewProps) {
 
             {options.map((option) => {
               const percentage = totalVotes > 0 ? (option.voteCount / totalVotes) * 100 : 0;
+              const isOptionOwner = option.user_id === currentUserId;
 
               return (
                 <div key={option.id} className="space-y-2">
@@ -420,7 +422,7 @@ export function PollView({ pollId, onBack }: PollViewProps) {
                       <span className="text-sm text-gray-600">
                         {option.voteCount} {option.voteCount === 1 ? 'vote' : 'votes'}
                       </span>
-                      {isOwner && (
+                      {isOptionOwner && (
                         <button
                           onClick={() => handleDeleteOption(option.id)}
                           className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
@@ -456,27 +458,25 @@ export function PollView({ pollId, onBack }: PollViewProps) {
               );
             })}
 
-            {isOwner && (
-              <div className="pt-4 border-t border-gray-200">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newOptionName}
-                    onChange={(e) => setNewOptionName(e.target.value)}
-                    placeholder="Add new option..."
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddOption()}
-                  />
-                  <button
-                    onClick={handleAddOption}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add
-                  </button>
-                </div>
+            <div className="pt-4 border-t border-gray-200">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newOptionName}
+                  onChange={(e) => setNewOptionName(e.target.value)}
+                  placeholder="Add new option..."
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddOption()}
+                />
+                <button
+                  onClick={handleAddOption}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add
+                </button>
               </div>
-            )}
+            </div>
           </div>
         </div>
       </div>
