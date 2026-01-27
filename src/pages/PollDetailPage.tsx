@@ -66,7 +66,7 @@ export function PollDetailPage() {
       setPoll(pollData);
 
       const { data: optionsData, error: optionsError } = await supabase
-        .from('poll_options')
+        .from('options')
         .select(`
           id,
           name,
@@ -162,7 +162,7 @@ export function PollDetailPage() {
       setAddingOption(true);
 
       const { error } = await supabase
-        .from('poll_options')
+        .from('options')
         .insert([
           {
             poll_id: poll!.id,

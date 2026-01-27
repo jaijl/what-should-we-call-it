@@ -89,7 +89,7 @@ export function CreatePollPage() {
         }));
 
         const { error: optionsError } = await supabase
-          .from('poll_options')
+          .from('options')
           .insert(optionInserts);
 
         if (optionsError) throw optionsError;
