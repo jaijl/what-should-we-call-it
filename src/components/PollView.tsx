@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { ArrowLeft, User, Users, Trash2, Plus, Edit2, X, Sparkles } from 'lucide-react';
+import { ArrowLeft, User, Users, Trash2, Plus, Edit2, X, Sparkles, Crown } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Poll, Option, Vote } from '../types';
+import SubscriptionBanner from './SubscriptionBanner';
 
 interface PollViewProps {
   pollId: string;
@@ -28,6 +29,8 @@ export function PollView({ pollId, onBack }: PollViewProps) {
   const [editingOptionId, setEditingOptionId] = useState<string | null>(null);
   const [editOptionName, setEditOptionName] = useState('');
   const [isGeneratingNames, setIsGeneratingNames] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [bannerKey, setBannerKey] = useState(0);
 
   useEffect(() => {
     loadUserProfile();
@@ -387,10 +390,16 @@ export function PollView({ pollId, onBack }: PollViewProps) {
 
       if (!response.ok) {
         const errorData = await response.json();
+
+        if (errorData.requiresUpgrade) {
+          setShowUpgradeModal(true);
+          return;
+        }
+
         throw new Error(errorData.error || 'Failed to generate names');
       }
 
-      const { names } = await response.json();
+      const { names, usage } = await response.json();
 
       if (!names || !Array.isArray(names) || names.length === 0) {
         alert('No names were generated. Please try again.');
@@ -407,8 +416,17 @@ export function PollView({ pollId, onBack }: PollViewProps) {
 
       await Promise.all(insertPromises);
       await loadPollData();
+      setBannerKey(prev => prev + 1);
 
-      alert(`Successfully added ${names.length} AI-generated name suggestions!`);
+      let message = `Successfully added ${names.length} AI-generated name suggestions!`;
+      if (usage && !usage.isPremium && usage.generationsRemaining !== undefined) {
+        if (usage.generationsRemaining === 0) {
+          message += '\n\nYou have used all your free generations. Upgrade to premium for unlimited AI generations!';
+        } else {
+          message += `\n\nYou have ${usage.generationsRemaining} free generation${usage.generationsRemaining === 1 ? '' : 's'} remaining.`;
+        }
+      }
+      alert(message);
     } catch (error: any) {
       console.error('Error generating names:', error);
       alert(`Failed to generate names: ${error.message || 'Please try again.'}`);
@@ -524,6 +542,10 @@ export function PollView({ pollId, onBack }: PollViewProps) {
         </div>
 
         <div className="p-8">
+          {currentUserId && (
+            <SubscriptionBanner key={bannerKey} userId={currentUserId} />
+          )}
+
           <div className="space-y-3 mb-8">
             {myVotes.length > 0 && (
               <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-xl text-center text-blue-800 font-medium">
@@ -734,6 +756,77 @@ export function PollView({ pollId, onBack }: PollViewProps) {
                 className="flex-1 px-4 py-3 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors"
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showUpgradeModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <div className="flex items-center gap-3 mb-4 text-amber-600">
+              <Crown className="w-6 h-6" />
+              <h3 className="text-xl font-bold">Upgrade to Premium</h3>
+            </div>
+            <p className="text-gray-600 mb-4">
+              You've used your 2 free AI generations. Upgrade to premium for unlimited generations!
+            </p>
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 p-4 rounded-lg mb-6">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-semibold text-gray-900">Premium Plan</span>
+                <span className="text-2xl font-bold text-gray-900">$5<span className="text-sm font-normal text-gray-600">/month</span></span>
+              </div>
+              <ul className="space-y-2 text-sm text-gray-700">
+                <li className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-600" />
+                  Unlimited AI name generations
+                </li>
+                <li className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-600" />
+                  Priority support
+                </li>
+                <li className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-600" />
+                  Cancel anytime
+                </li>
+              </ul>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={async () => {
+                  setShowUpgradeModal(false);
+                  const { data: { session } } = await supabase.auth.getSession();
+                  if (!session) {
+                    alert('Please log in to upgrade');
+                    return;
+                  }
+                  const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-checkout`;
+                  const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${session.access_token}`,
+                      'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+                      'Content-Type': 'application/json',
+                    },
+                  });
+                  if (response.ok) {
+                    const { url } = await response.json();
+                    window.location.href = url;
+                  } else {
+                    alert('Failed to start checkout. Please try again.');
+                  }
+                }}
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg font-medium hover:from-amber-600 hover:to-orange-600 transition-colors flex items-center justify-center gap-2"
+              >
+                <Crown className="w-4 h-4" />
+                Upgrade Now
+              </button>
+              <button
+                onClick={() => setShowUpgradeModal(false)}
+                className="flex-1 px-4 py-3 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors"
+              >
+                Maybe Later
               </button>
             </div>
           </div>

@@ -31,6 +31,19 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const checkoutStatus = params.get('checkout');
+
+    if (checkoutStatus === 'success') {
+      alert('Welcome to Premium! Your subscription is now active. Enjoy unlimited AI generations!');
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (checkoutStatus === 'cancelled') {
+      alert('Checkout was cancelled. You can upgrade to premium anytime from any poll.');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
+
   const handleCreateNew = () => {
     setCurrentView('create');
   };

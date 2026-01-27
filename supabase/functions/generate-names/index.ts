@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,6 +21,80 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    // Get user ID from JWT
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Missing authorization header" }),
+        {
+          status: 401,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    }
+
+    // Create Supabase client with service role to access database functions
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Get user from JWT
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: "Invalid authentication token" }),
+        {
+          status: 401,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    }
+
+    // Check if user can generate
+    const { data: canGenerate, error: checkError } = await supabase.rpc(
+      "can_user_generate",
+      { p_user_id: user.id }
+    );
+
+    if (checkError) {
+      console.error("Error checking generation limit:", checkError);
+      return new Response(
+        JSON.stringify({ error: "Failed to check generation limit" }),
+        {
+          status: 500,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    }
+
+    if (!canGenerate) {
+      return new Response(
+        JSON.stringify({
+          error: "Generation limit reached",
+          message: "You've used your 2 free generations. Upgrade to premium for unlimited generations.",
+          requiresUpgrade: true
+        }),
+        {
+          status: 403,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    }
+
     const { currentTitle, count = 5 }: RequestBody = await req.json();
 
     if (!currentTitle || currentTitle.trim() === "") {
@@ -133,8 +208,44 @@ Example format: ["Name 1", "Name 2", "Name 3"]`;
       );
     }
 
+    // Increment generation count after successful generation
+    const { error: incrementError } = await supabase.rpc(
+      "increment_generation_count",
+      { p_user_id: user.id }
+    );
+
+    if (incrementError) {
+      console.error("Error incrementing generation count:", incrementError);
+      // Don't fail the request, just log the error
+    }
+
+    // Get updated generation count to return to user
+    const { data: usageData } = await supabase
+      .from("generation_usage")
+      .select("generation_count")
+      .eq("user_id", user.id)
+      .single();
+
+    const { data: subscriptionData } = await supabase
+      .from("user_subscriptions")
+      .select("subscription_status")
+      .eq("user_id", user.id)
+      .eq("subscription_status", "active")
+      .maybeSingle();
+
+    const isPremium = subscriptionData !== null;
+    const generationsUsed = usageData?.generation_count || 0;
+    const generationsRemaining = isPremium ? -1 : Math.max(0, 2 - generationsUsed);
+
     return new Response(
-      JSON.stringify({ names }),
+      JSON.stringify({
+        names,
+        usage: {
+          generationsUsed,
+          generationsRemaining,
+          isPremium
+        }
+      }),
       {
         status: 200,
         headers: {
