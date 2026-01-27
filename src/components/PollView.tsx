@@ -134,6 +134,28 @@ export function PollView({ pollId, onBack }: PollViewProps) {
       const optionsList = Array.from(optionsMap.values()).sort(
         (a, b) => b.voteCount - a.voteCount
       );
+
+      // Load individual votes with voter names
+      const { data: votesData } = await supabase
+        .from('votes')
+        .select('option_id, voter_name, user_id')
+        .eq('poll_id', pollId);
+
+      if (votesData) {
+        optionsList.forEach(option => {
+          option.votes = votesData
+            .filter((v: any) => v.option_id === option.id)
+            .map((v: any) => ({
+              id: '',
+              poll_id: pollId,
+              option_id: v.option_id,
+              voter_name: v.voter_name,
+              user_id: v.user_id,
+              created_at: ''
+            }));
+        });
+      }
+
       setOptions(optionsList);
 
       if (currentUserId) {
