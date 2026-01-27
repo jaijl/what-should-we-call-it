@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { User, Lock, Mail } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
@@ -6,7 +6,7 @@ interface AuthProps {
   onAuthSuccess: () => void;
 }
 
-export function Auth({ onAuthSuccess }: AuthProps) {
+export const Auth = memo(function Auth({ onAuthSuccess }: AuthProps) {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -163,4 +163,4 @@ export function Auth({ onAuthSuccess }: AuthProps) {
       </div>
     </div>
   );
-}
+});

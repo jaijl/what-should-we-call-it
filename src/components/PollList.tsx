@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, memo } from 'react';
 import { Plus, MessageCircle, TrendingUp, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Poll } from '../types';
@@ -13,7 +13,7 @@ interface PollWithStats extends Poll {
   voteCount: number;
 }
 
-export function PollList({ onCreateNew, onSelectPoll }: PollListProps) {
+export const PollList = memo(function PollList({ onCreateNew, onSelectPoll }: PollListProps) {
   const [polls, setPolls] = useState<PollWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -37,26 +37,21 @@ export function PollList({ onCreateNew, onSelectPoll }: PollListProps) {
   const loadPolls = async () => {
     try {
       const { data: pollsData, error: pollsError } = await supabase
-        .from('polls')
+        .from('poll_list_view')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (pollsError) throw pollsError;
 
-      const pollsWithStats = await Promise.all(
-        pollsData.map(async (poll) => {
-          const [optionsResponse, votesResponse] = await Promise.all([
-            supabase.from('options').select('id').eq('poll_id', poll.id),
-            supabase.from('votes').select('id').eq('poll_id', poll.id)
-          ]);
-
-          return {
-            ...poll,
-            optionCount: optionsResponse.data?.length || 0,
-            voteCount: votesResponse.data?.length || 0
-          };
-        })
-      );
+      const pollsWithStats = pollsData.map((poll) => ({
+        id: poll.id,
+        title: poll.title,
+        user_id: poll.user_id,
+        created_at: poll.created_at,
+        updated_at: poll.updated_at,
+        optionCount: poll.option_count,
+        voteCount: poll.total_votes
+      }));
 
       setPolls(pollsWithStats);
     } catch (error) {
@@ -175,4 +170,4 @@ export function PollList({ onCreateNew, onSelectPoll }: PollListProps) {
       )}
     </div>
   );
-}
+});

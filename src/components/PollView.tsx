@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { ArrowLeft, User, Users, Trash2, Plus, Edit2, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Poll, Option, Vote } from '../types';
@@ -90,31 +90,62 @@ export function PollView({ pollId, onBack }: PollViewProps) {
 
   const loadPollData = async () => {
     try {
-      const [pollResponse, optionsResponse, votesResponse] = await Promise.all([
-        supabase.from('polls').select('*').eq('id', pollId).maybeSingle(),
-        supabase.from('options').select('*').eq('poll_id', pollId),
-        supabase.from('votes').select('*').eq('poll_id', pollId)
-      ]);
+      const { data: pollDetails, error: pollError } = await supabase.rpc(
+        'get_poll_details',
+        { poll_uuid: pollId }
+      );
 
-      if (pollResponse.error) throw pollResponse.error;
-      if (optionsResponse.error) throw optionsResponse.error;
-      if (votesResponse.error) throw votesResponse.error;
+      if (pollError) throw pollError;
 
-      setPoll(pollResponse.data);
+      if (!pollDetails || pollDetails.length === 0) {
+        setPoll(null);
+        setOptions([]);
+        return;
+      }
 
-      const optionsWithVotes: OptionWithVotes[] = optionsResponse.data.map(option => ({
-        ...option,
-        voteCount: votesResponse.data.filter(v => v.option_id === option.id).length,
-        votes: votesResponse.data.filter(v => v.option_id === option.id)
-      }));
+      const firstRow = pollDetails[0];
+      setPoll({
+        id: firstRow.poll_id,
+        title: firstRow.poll_title,
+        user_id: firstRow.poll_user_id,
+        created_at: firstRow.poll_created_at,
+        updated_at: firstRow.poll_updated_at
+      });
 
-      setOptions(optionsWithVotes.sort((a, b) => b.voteCount - a.voteCount));
+      const optionsMap = new Map<string, OptionWithVotes>();
+
+      pollDetails.forEach((row: any) => {
+        if (!row.option_id) return;
+
+        if (!optionsMap.has(row.option_id)) {
+          optionsMap.set(row.option_id, {
+            id: row.option_id,
+            poll_id: firstRow.poll_id,
+            name: row.option_name,
+            created_at: row.option_created_at,
+            updated_at: row.option_created_at,
+            user_id: null,
+            voteCount: Number(row.vote_count),
+            votes: []
+          });
+        }
+      });
+
+      const optionsList = Array.from(optionsMap.values()).sort(
+        (a, b) => b.voteCount - a.voteCount
+      );
+      setOptions(optionsList);
 
       if (currentUserId) {
-        const userVotes = votesResponse.data
-          .filter(v => v.user_id === currentUserId)
-          .map(v => v.option_id);
-        setMyVotes(userVotes);
+        const { data: userVotesData } = await supabase
+          .from('votes')
+          .select('option_id')
+          .eq('poll_id', pollId)
+          .eq('user_id', currentUserId);
+
+        if (userVotesData) {
+          setMyVotes(userVotesData.map((v: any) => v.option_id));
+        }
       }
     } catch (error) {
       console.error('Error loading poll:', error);
@@ -123,7 +154,7 @@ export function PollView({ pollId, onBack }: PollViewProps) {
     }
   };
 
-  const handleVote = async (optionId: string) => {
+  const handleVote = useCallback(async (optionId: string) => {
     if (myVotes.length >= 3) {
       alert('You can only vote for up to 3 options.');
       return;
@@ -140,14 +171,13 @@ export function PollView({ pollId, onBack }: PollViewProps) {
       if (error) throw error;
 
       setMyVotes([...myVotes, optionId]);
-      loadPollData();
     } catch (error) {
       console.error('Error voting:', error);
       alert('Failed to record vote. Please try again.');
     }
-  };
+  }, [myVotes, pollId, userName, currentUserId]);
 
-  const handleUnvote = async (optionId: string) => {
+  const handleUnvote = useCallback(async (optionId: string) => {
     try {
       const { error } = await supabase
         .from('votes')
@@ -159,12 +189,11 @@ export function PollView({ pollId, onBack }: PollViewProps) {
       if (error) throw error;
 
       setMyVotes(myVotes.filter(id => id !== optionId));
-      loadPollData();
     } catch (error) {
       console.error('Error removing vote:', error);
       alert('Failed to remove vote. Please try again.');
     }
-  };
+  }, [myVotes, pollId, currentUserId]);
 
   const handleAddOption = async () => {
     if (!newOptionName.trim()) return;
@@ -263,7 +292,10 @@ export function PollView({ pollId, onBack }: PollViewProps) {
     }
   };
 
-  const totalVotes = options.reduce((sum, opt) => sum + opt.voteCount, 0);
+  const totalVotes = useMemo(
+    () => options.reduce((sum, opt) => sum + opt.voteCount, 0),
+    [options]
+  );
 
   if (loading) {
     return (

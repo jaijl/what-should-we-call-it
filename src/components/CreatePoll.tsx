@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { Plus, X, Sparkles } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
@@ -7,7 +7,7 @@ interface CreatePollProps {
   onCancel: () => void;
 }
 
-export function CreatePoll({ onPollCreated, onCancel }: CreatePollProps) {
+export const CreatePoll = memo(function CreatePoll({ onPollCreated, onCancel }: CreatePollProps) {
   const [title, setTitle] = useState('');
   const [options, setOptions] = useState(['', '']);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -161,4 +161,4 @@ export function CreatePoll({ onPollCreated, onCancel }: CreatePollProps) {
       </div>
     </div>
   );
-}
+});
