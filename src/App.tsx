@@ -1,24 +1,18 @@
 import { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { User } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
-import { Auth } from './components/Auth';
-import { PollList } from './components/PollList';
-import { CreatePoll } from './components/CreatePoll';
-import { PollView } from './components/PollView';
-import { LogOut } from 'lucide-react';
-
-type View = 'list' | 'create' | 'view';
 import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
 import { SuccessPage } from './pages/SuccessPage';
 import { SubscriptionPage } from './pages/SubscriptionPage';
+import { PollListPage } from './pages/PollListPage';
+import { CreatePollPage } from './pages/CreatePollPage';
+import { PollDetailPage } from './pages/PollDetailPage';
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [currentView, setCurrentView] = useState<View>('list');
-  const [selectedPollId, setSelectedPollId] = useState<string | null>(null);
-  const [listKey, setListKey] = useState(0);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -35,43 +29,6 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const checkoutStatus = params.get('checkout');
-
-    if (checkoutStatus === 'success') {
-      alert('Welcome to Premium! Your subscription is now active. Enjoy unlimited AI generations!');
-      window.history.replaceState({}, '', window.location.pathname);
-    } else if (checkoutStatus === 'cancelled') {
-      alert('Checkout was cancelled. You can upgrade to premium anytime from any poll.');
-      window.history.replaceState({}, '', window.location.pathname);
-    }
-  }, []);
-
-  const handleCreateNew = () => {
-    setCurrentView('create');
-  };
-
-  const handlePollCreated = (pollId: string) => {
-    setSelectedPollId(pollId);
-    setCurrentView('view');
-  };
-
-  const handleSelectPoll = (pollId: string) => {
-    setSelectedPollId(pollId);
-    setCurrentView('view');
-  };
-
-  const handleBackToList = () => {
-    setCurrentView('list');
-    setSelectedPollId(null);
-    setListKey(prev => prev + 1);
-  };
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
@@ -80,36 +37,18 @@ function App() {
     );
   }
 
-  if (!user) {
-    return <Auth onAuthSuccess={() => {}} />;
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-12 px-4">
-      <div className="max-w-7xl mx-auto mb-6 flex justify-end">
-        <button
-          onClick={handleSignOut}
-          className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-gray-900 hover:bg-white rounded-lg transition-all"
-        >
-          <LogOut className="w-4 h-4" />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignupPage />} />
-          <Route path="/success" element={<SuccessPage />} />
-          <Route path="/subscription" element={<SubscriptionPage />} />
-          Sign Out
-        </button>
-      </div>
-
-      {currentView === 'list' && (
-        <PollList key={listKey} onCreateNew={handleCreateNew} onSelectPoll={handleSelectPoll} />
-      )}
-      {currentView === 'create' && (
-        <CreatePoll onPollCreated={handlePollCreated} onCancel={handleBackToList} />
-      )}
-      {currentView === 'view' && selectedPollId && (
-        <PollView pollId={selectedPollId} onBack={handleBackToList} />
-      )}
-    </div>
+    <Router>
+      <Routes>
+        <Route path="/login" element={!user ? <LoginPage /> : <Navigate to="/" />} />
+        <Route path="/signup" element={!user ? <SignupPage /> : <Navigate to="/" />} />
+        <Route path="/success" element={user ? <SuccessPage /> : <Navigate to="/login" />} />
+        <Route path="/subscription" element={user ? <SubscriptionPage /> : <Navigate to="/login" />} />
+        <Route path="/" element={user ? <PollListPage /> : <Navigate to="/login" />} />
+        <Route path="/create" element={user ? <CreatePollPage /> : <Navigate to="/login" />} />
+        <Route path="/poll/:id" element={user ? <PollDetailPage /> : <Navigate to="/login" />} />
+      </Routes>
+    </Router>
   );
 }
 

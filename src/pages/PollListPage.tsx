@@ -149,7 +149,7 @@ export function PollListPage() {
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Polls</h1>
         <Link
-          to="/polls/create"
+          to="/create"
           className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
         >
           Create Poll
@@ -165,7 +165,7 @@ export function PollListPage() {
           </p>
           <div className="mt-6">
             <Link
-              to="/polls/create"
+              to="/create"
               className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
               Create Poll
@@ -177,7 +177,7 @@ export function PollListPage() {
           {polls.map((poll) => (
             <Link
               key={poll.id}
-              to={`/polls/${poll.id}`}
+              to={`/poll/${poll.id}`}
               className="bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow"
             >
               <div className="p-6">

@@ -2,20 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
-import { ArrowLeft, Plus, Edit2, Trash2, Users } from 'lucide-react';
+import { ArrowLeft, Plus, Users } from 'lucide-react';
 
-interface PollData {
-  poll_id: string;
-  poll_title: string;
-  poll_description: string | null;
-  poll_user_id: string;
-  poll_created_at: string;
-  poll_updated_at: string;
-  option_id: string | null;
-  option_name: string | null;
-  option_created_at: string | null;
-  option_user_id: string | null;
-  vote_count: number;
+interface Poll {
+  id: string;
+  title: string;
+  description: string | null;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
 }
 
 interface Option {
@@ -53,57 +48,56 @@ export function PollDetailPage() {
   const fetchPollDetails = async () => {
     try {
       setLoading(true);
-      
-      const { data, error } = await supabase
+
+      const { data: pollData, error: pollError } = await supabase
         .from('polls')
-        .select(`
-          id,
-          title,
-          description,
-          user_id,
-          created_at,
-          updated_at,
-          options (
-            id,
-            name,
-            created_at,
-            user_id,
-            votes (count)
-          )
-        `)
+        .select('*')
         .eq('id', id!)
         .single();
 
-      if (error) throw error;
+      if (pollError) throw pollError;
 
-      if (data) {
-        setPoll(data);
-        
-        // Process options with vote counts
-        const optionsWithVotes = data.options.map((option: any) => ({
-          ...option,
-          vote_count: option.votes.length,
-          hasVoted: false,
-        }));
-
-        // Check which options the user has voted for
-        if (poll) {
-          const { data: userVotes } = await supabase
-            .from('votes')
-            .select('option_id')
-            .eq('poll_id', poll.id)
-            .eq('user_id', user!.id);
-
-          if (userVotes) {
-            const votedOptionIds = new Set(userVotes.map(vote => vote.option_id));
-            optionsWithVotes.forEach((option: Option) => {
-              option.hasVoted = votedOptionIds.has(option.id);
-            });
-          }
-        }
-
-        setOptions(optionsWithVotes);
+      if (!pollData) {
+        setPoll(null);
+        setLoading(false);
+        return;
       }
+
+      setPoll(pollData);
+
+      const { data: optionsData, error: optionsError } = await supabase
+        .from('poll_options')
+        .select(`
+          id,
+          name,
+          created_at,
+          user_id
+        `)
+        .eq('poll_id', id!);
+
+      if (optionsError) throw optionsError;
+
+      const { data: votesData, error: votesError } = await supabase
+        .from('votes')
+        .select('option_id, user_id')
+        .eq('poll_id', id!);
+
+      if (votesError) throw votesError;
+
+      const voteCounts = votesData?.reduce((acc: Record<string, number>, vote) => {
+        acc[vote.option_id] = (acc[vote.option_id] || 0) + 1;
+        return acc;
+      }, {}) || {};
+
+      const userVotes = new Set(votesData?.filter(v => v.user_id === user?.id).map(v => v.option_id) || []);
+
+      const optionsWithVotes = optionsData?.map(option => ({
+        ...option,
+        vote_count: voteCounts[option.id] || 0,
+        hasVoted: userVotes.has(option.id),
+      })) || [];
+
+      setOptions(optionsWithVotes);
     } catch (error) {
       console.error('Error fetching poll details:', error);
     } finally {
@@ -166,9 +160,9 @@ export function PollDetailPage() {
 
     try {
       setAddingOption(true);
-      
+
       const { error } = await supabase
-        .from('options')
+        .from('poll_options')
         .insert([
           {
             poll_id: poll!.id,
@@ -186,14 +180,6 @@ export function PollDetailPage() {
     } finally {
       setAddingOption(false);
     }
-  };
-
-  const canEditOption = (option: Option) => {
-    return user && option.user_id === user.id;
-  };
-
-  const canEditPoll = () => {
-    return user && poll && poll.user_id === user.id;
   };
 
   if (loading) {
@@ -274,26 +260,6 @@ export function PollDetailPage() {
                   <div key={option.id} className="border border-gray-200 rounded-lg p-4">
                     <div className="flex items-center justify-between">
                       <span className="font-medium">{option.name}</span>
-                      <div className="flex items-center space-x-2">
-                        {canEditOption(option) && (
-                          <>
-                            <button
-                              onClick={() => handleEditOption(option.id, option.name)}
-                              className="p-1 text-gray-400 hover:text-indigo-600"
-                              title="Edit option"
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteOption(option.id)}
-                              className="p-1 text-gray-400 hover:text-red-600"
-                              title="Delete option"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </>
-                        )}
-                      </div>
                     </div>
                     
                     <div className="mt-3">
