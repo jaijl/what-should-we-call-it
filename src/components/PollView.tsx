@@ -21,8 +21,8 @@ export function PollView({ pollId, onBack }: PollViewProps) {
   const [voterName, setVoterName] = useState('');
   const [showNameInput, setShowNameInput] = useState(false);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editTitle, setEditTitle] = useState('');
+  const [editingOptionId, setEditingOptionId] = useState<string | null>(null);
+  const [editOptionName, setEditOptionName] = useState('');
   const [newOptionName, setNewOptionName] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -30,12 +30,6 @@ export function PollView({ pollId, onBack }: PollViewProps) {
     loadPollData();
     subscribeToVotes();
   }, [pollId]);
-
-  useEffect(() => {
-    if (poll && !editTitle) {
-      setEditTitle(poll.title);
-    }
-  }, [poll]);
 
   const subscribeToVotes = () => {
     const channel = supabase
@@ -119,29 +113,29 @@ export function PollView({ pollId, onBack }: PollViewProps) {
     }
   };
 
-  const handleUpdateTitle = async () => {
-    if (!editTitle.trim()) return;
+  const handleUpdateOptionName = async (optionId: string) => {
+    if (!editOptionName.trim()) return;
 
     try {
-      const { data, error } = await supabase
-        .from('polls')
-        .update({ title: editTitle.trim() })
-        .eq('id', pollId)
-        .select();
+      const { error } = await supabase
+        .from('options')
+        .update({ name: editOptionName.trim() })
+        .eq('id', optionId);
 
-      if (error) {
-        console.error('Update error:', error);
-        throw error;
-      }
+      if (error) throw error;
 
-      console.log('Update successful:', data);
-      setPoll(poll ? { ...poll, title: editTitle.trim() } : null);
-      setIsEditing(false);
+      setEditingOptionId(null);
+      setEditOptionName('');
       loadPollData();
     } catch (error) {
-      console.error('Error updating title:', error);
-      alert('Failed to update title. Please try again.');
+      console.error('Error updating option:', error);
+      alert('Failed to update option name. Please try again.');
     }
+  };
+
+  const startEditingOption = (option: OptionWithVotes) => {
+    setEditingOptionId(option.id);
+    setEditOptionName(option.name);
   };
 
   const handleAddOption = async () => {
@@ -233,60 +227,20 @@ export function PollView({ pollId, onBack }: PollViewProps) {
 
       <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
         <div className="bg-gradient-to-r from-blue-500 to-cyan-500 px-8 py-6">
-          {isEditing ? (
-            <div className="space-y-3">
-              <input
-                type="text"
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-                className="w-full px-4 py-2 rounded-lg text-gray-900 font-bold text-2xl"
-                onKeyDown={(e) => e.key === 'Enter' && handleUpdateTitle()}
-              />
-              <div className="flex gap-2">
-                <button
-                  onClick={handleUpdateTitle}
-                  className="px-4 py-2 bg-white text-blue-600 rounded-lg font-medium hover:bg-blue-50 transition-colors"
-                >
-                  Save
-                </button>
-                <button
-                  onClick={() => {
-                    setIsEditing(false);
-                    setEditTitle(poll.title);
-                  }}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="flex justify-between items-start mb-2">
-                <h1 className="text-2xl font-bold text-white flex-1">{poll.title}</h1>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setIsEditing(true)}
-                    className="p-2 text-white hover:bg-blue-600 rounded-lg transition-colors"
-                    title="Edit poll"
-                  >
-                    <Edit2 className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => setShowDeleteConfirm(true)}
-                    className="p-2 text-white hover:bg-red-600 rounded-lg transition-colors"
-                    title="Delete poll"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 text-blue-100">
-                <Users className="w-4 h-4" />
-                <span className="text-sm">{totalVotes} {totalVotes === 1 ? 'vote' : 'votes'}</span>
-              </div>
-            </>
-          )}
+          <div className="flex justify-between items-start mb-2">
+            <h1 className="text-2xl font-bold text-white flex-1">{poll.title}</h1>
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="p-2 text-white hover:bg-red-600 rounded-lg transition-colors"
+              title="Delete poll"
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="flex items-center gap-2 text-blue-100">
+            <Users className="w-4 h-4" />
+            <span className="text-sm">{totalVotes} {totalVotes === 1 ? 'vote' : 'votes'}</span>
+          </div>
         </div>
 
         <div className="p-8">
@@ -353,22 +307,60 @@ export function PollView({ pollId, onBack }: PollViewProps) {
 
             {options.map((option) => {
               const percentage = totalVotes > 0 ? (option.voteCount / totalVotes) * 100 : 0;
+              const isEditing = editingOptionId === option.id;
+
               return (
                 <div key={option.id} className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium text-gray-900">{option.name}</span>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm text-gray-600">
-                        {option.voteCount} {option.voteCount === 1 ? 'vote' : 'votes'}
-                      </span>
-                      <button
-                        onClick={() => handleDeleteOption(option.id)}
-                        className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
-                        title="Delete option"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                  <div className="flex justify-between items-center gap-3">
+                    {isEditing ? (
+                      <div className="flex-1 flex gap-2">
+                        <input
+                          type="text"
+                          value={editOptionName}
+                          onChange={(e) => setEditOptionName(e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          onKeyDown={(e) => e.key === 'Enter' && handleUpdateOptionName(option.id)}
+                        />
+                        <button
+                          onClick={() => handleUpdateOptionName(option.id)}
+                          className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditingOptionId(null);
+                            setEditOptionName('');
+                          }}
+                          className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <span className="font-medium text-gray-900">{option.name}</span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm text-gray-600">
+                            {option.voteCount} {option.voteCount === 1 ? 'vote' : 'votes'}
+                          </span>
+                          <button
+                            onClick={() => startEditingOption(option)}
+                            className="p-1 text-blue-500 hover:bg-blue-50 rounded transition-colors"
+                            title="Edit option"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteOption(option.id)}
+                            className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
+                            title="Delete option"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                   <div className="relative w-full h-3 bg-gray-200 rounded-full overflow-hidden">
                     <div
