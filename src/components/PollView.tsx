@@ -17,7 +17,7 @@ export function PollView({ pollId, onBack }: PollViewProps) {
   const [poll, setPoll] = useState<Poll | null>(null);
   const [options, setOptions] = useState<OptionWithVotes[]>([]);
   const [loading, setLoading] = useState(true);
-  const [hasVoted, setHasVoted] = useState(false);
+  const [myVotes, setMyVotes] = useState<string[]>([]);
   const [userName, setUserName] = useState('');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isOwner, setIsOwner] = useState(false);
@@ -37,6 +37,12 @@ export function PollView({ pollId, onBack }: PollViewProps) {
       setIsOwner(poll.user_id === currentUserId);
     }
   }, [poll, currentUserId]);
+
+  useEffect(() => {
+    if (currentUserId) {
+      loadPollData();
+    }
+  }, [currentUserId]);
 
   const loadUserProfile = async () => {
     try {
@@ -103,6 +109,13 @@ export function PollView({ pollId, onBack }: PollViewProps) {
       }));
 
       setOptions(optionsWithVotes.sort((a, b) => b.voteCount - a.voteCount));
+
+      if (currentUserId) {
+        const userVotes = votesResponse.data
+          .filter(v => v.user_id === currentUserId)
+          .map(v => v.option_id);
+        setMyVotes(userVotes);
+      }
     } catch (error) {
       console.error('Error loading poll:', error);
     } finally {
@@ -111,22 +124,46 @@ export function PollView({ pollId, onBack }: PollViewProps) {
   };
 
   const handleVote = async (optionId: string) => {
-    if (hasVoted) return;
+    const isAlreadyVoted = myVotes.includes(optionId);
 
-    try {
-      const { error } = await supabase.from('votes').insert({
-        poll_id: pollId,
-        option_id: optionId,
-        voter_name: userName || null
-      });
+    if (isAlreadyVoted) {
+      try {
+        const { error } = await supabase
+          .from('votes')
+          .delete()
+          .eq('poll_id', pollId)
+          .eq('option_id', optionId)
+          .eq('user_id', currentUserId);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      setHasVoted(true);
-      loadPollData();
-    } catch (error) {
-      console.error('Error voting:', error);
-      alert('Failed to record vote. Please try again.');
+        setMyVotes(myVotes.filter(id => id !== optionId));
+        loadPollData();
+      } catch (error) {
+        console.error('Error removing vote:', error);
+        alert('Failed to remove vote. Please try again.');
+      }
+    } else {
+      if (myVotes.length >= 3) {
+        alert('You can only vote for up to 3 options.');
+        return;
+      }
+
+      try {
+        const { error } = await supabase.from('votes').insert({
+          poll_id: pollId,
+          option_id: optionId,
+          voter_name: userName || null
+        });
+
+        if (error) throw error;
+
+        setMyVotes([...myVotes, optionId]);
+        loadPollData();
+      } catch (error) {
+        console.error('Error voting:', error);
+        alert('Failed to record vote. Please try again.');
+      }
     }
   };
 
@@ -326,27 +363,32 @@ export function PollView({ pollId, onBack }: PollViewProps) {
         </div>
 
         <div className="p-8">
-          {!hasVoted && (
-            <div className="space-y-3 mb-8">
-              {options.map((option) => (
+          <div className="space-y-3 mb-8">
+            {myVotes.length > 0 && (
+              <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-xl text-center text-blue-800 font-medium">
+                You've voted for {myVotes.length} {myVotes.length === 1 ? 'option' : 'options'} (max 3)
+              </div>
+            )}
+            {options.map((option) => {
+              const isVoted = myVotes.includes(option.id);
+              return (
                 <button
                   key={option.id}
                   onClick={() => handleVote(option.id)}
-                  className="w-full text-left px-6 py-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all group"
+                  className={`w-full text-left px-6 py-4 border-2 rounded-xl transition-all group ${
+                    isVoted
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-200 hover:border-blue-500 hover:bg-blue-50'
+                  }`}
                 >
-                  <div className="font-medium text-gray-900 group-hover:text-blue-700">
+                  <div className={`font-medium ${isVoted ? 'text-blue-700' : 'text-gray-900 group-hover:text-blue-700'}`}>
                     {option.name}
+                    {isVoted && <span className="ml-2 text-sm">✓</span>}
                   </div>
                 </button>
-              ))}
-            </div>
-          )}
-
-          {hasVoted && (
-            <div className="mb-8 p-4 bg-green-50 border border-green-200 rounded-xl text-center text-green-800 font-medium">
-              Thanks for voting, {userName}!
-            </div>
-          )}
+              );
+            })}
+          </div>
 
           <div className="space-y-4">
             <div className="flex justify-between items-center mb-4">
