@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, User, Users } from 'lucide-react';
+import { ArrowLeft, User, Users, Edit2, Trash2, Plus } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Poll, Option, Vote } from '../types';
 
@@ -21,11 +21,21 @@ export function PollView({ pollId, onBack }: PollViewProps) {
   const [voterName, setVoterName] = useState('');
   const [showNameInput, setShowNameInput] = useState(false);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [newOptionName, setNewOptionName] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     loadPollData();
     subscribeToVotes();
   }, [pollId]);
+
+  useEffect(() => {
+    if (poll && !editTitle) {
+      setEditTitle(poll.title);
+    }
+  }, [poll]);
 
   const subscribeToVotes = () => {
     const channel = supabase
