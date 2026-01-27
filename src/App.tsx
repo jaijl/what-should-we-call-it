@@ -40,13 +40,14 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/login" element={!user ? <LoginPage /> : <Navigate to="/" />} />
-        <Route path="/signup" element={!user ? <SignupPage /> : <Navigate to="/" />} />
-        <Route path="/success" element={user ? <SuccessPage /> : <Navigate to="/login" />} />
-        <Route path="/subscription" element={user ? <SubscriptionPage /> : <Navigate to="/login" />} />
-        <Route path="/" element={user ? <PollListPage /> : <Navigate to="/login" />} />
-        <Route path="/create" element={user ? <CreatePollPage /> : <Navigate to="/login" />} />
-        <Route path="/poll/:id" element={user ? <PollDetailPage /> : <Navigate to="/login" />} />
+        <Route path="/login" element={!user ? <LoginPage /> : <Navigate to="/" replace />} />
+        <Route path="/signup" element={!user ? <SignupPage /> : <Navigate to="/" replace />} />
+        <Route path="/success" element={user ? <SuccessPage /> : <Navigate to="/login" replace />} />
+        <Route path="/subscription" element={user ? <SubscriptionPage /> : <Navigate to="/login" replace />} />
+        <Route path="/" element={user ? <PollListPage /> : <Navigate to="/login" replace />} />
+        <Route path="/create" element={user ? <CreatePollPage /> : <Navigate to="/login" replace />} />
+        <Route path="/poll/:id" element={user ? <PollDetailPage /> : <Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to={user ? "/" : "/login"} replace />} />
       </Routes>
     </Router>
   );
