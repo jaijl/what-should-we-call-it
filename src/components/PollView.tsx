@@ -25,6 +25,8 @@ export function PollView({ pollId, onBack }: PollViewProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState('');
+  const [editingOptionId, setEditingOptionId] = useState<string | null>(null);
+  const [editOptionName, setEditOptionName] = useState('');
 
   useEffect(() => {
     loadUserProfile();
@@ -249,6 +251,31 @@ export function PollView({ pollId, onBack }: PollViewProps) {
     }
   };
 
+  const startEditingOption = (optionId: string, currentName: string) => {
+    setEditingOptionId(optionId);
+    setEditOptionName(currentName);
+  };
+
+  const handleUpdateOption = async () => {
+    if (!editOptionName.trim() || !editingOptionId) return;
+
+    try {
+      const { error } = await supabase
+        .from('options')
+        .update({ name: editOptionName.trim() })
+        .eq('id', editingOptionId);
+
+      if (error) throw error;
+
+      setEditingOptionId(null);
+      setEditOptionName('');
+      loadPollData();
+    } catch (error) {
+      console.error('Error updating option:', error);
+      alert('Failed to update option. You can only edit options you created.');
+    }
+  };
+
   const handleDeleteOption = async (optionId: string) => {
     if (!confirm('Are you sure you want to delete this option?')) return;
 
@@ -428,10 +455,13 @@ export function PollView({ pollId, onBack }: PollViewProps) {
             {options.map((option) => {
               const isVoted = myVotes.includes(option.id);
               const isLimitReached = myVotes.length >= 3 && !isVoted;
+              const isOptionOwner = option.user_id === currentUserId;
+              const isEditingThisOption = editingOptionId === option.id;
+
               return (
                 <div
                   key={option.id}
-                  className={`w-full px-6 py-4 border-2 rounded-xl transition-all flex items-center justify-between ${
+                  className={`w-full px-6 py-4 border-2 rounded-xl transition-all ${
                     isVoted
                       ? 'border-blue-500 bg-blue-50'
                       : isLimitReached
@@ -439,30 +469,80 @@ export function PollView({ pollId, onBack }: PollViewProps) {
                       : 'border-gray-200'
                   }`}
                 >
-                  <div className={`font-medium ${isVoted ? 'text-blue-700' : isLimitReached ? 'text-gray-400' : 'text-gray-900'}`}>
-                    {option.name}
-                    {isVoted && <span className="ml-2 text-sm">✓</span>}
-                  </div>
-                  {isVoted ? (
-                    <button
-                      onClick={() => handleUnvote(option.id)}
-                      className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors flex items-center gap-1"
-                    >
-                      <X className="w-4 h-4" />
-                      Unvote
-                    </button>
+                  {isEditingThisOption ? (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={editOptionName}
+                        onChange={(e) => setEditOptionName(e.target.value)}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        onKeyDown={(e) => e.key === 'Enter' && handleUpdateOption()}
+                        autoFocus
+                      />
+                      <button
+                        onClick={handleUpdateOption}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingOptionId(null);
+                          setEditOptionName('');
+                        }}
+                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   ) : (
-                    <button
-                      onClick={() => handleVote(option.id)}
-                      disabled={isLimitReached}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        isLimitReached
-                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                          : 'bg-blue-500 text-white hover:bg-blue-600'
-                      }`}
-                    >
-                      Vote
-                    </button>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className={`font-medium flex items-center gap-2 ${isVoted ? 'text-blue-700' : isLimitReached ? 'text-gray-400' : 'text-gray-900'}`}>
+                        {option.name}
+                        {isVoted && <span className="text-sm">✓</span>}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {isOptionOwner && (
+                          <>
+                            <button
+                              onClick={() => startEditingOption(option.id, option.name)}
+                              className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+                              title="Edit option"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteOption(option.id)}
+                              className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Delete option"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
+                        {isVoted ? (
+                          <button
+                            onClick={() => handleUnvote(option.id)}
+                            className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors flex items-center gap-1"
+                          >
+                            <X className="w-4 h-4" />
+                            Unvote
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleVote(option.id)}
+                            disabled={isLimitReached}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                              isLimitReached
+                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                : 'bg-blue-500 text-white hover:bg-blue-600'
+                            }`}
+                          >
+                            Vote
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   )}
                 </div>
               );
@@ -487,13 +567,22 @@ export function PollView({ pollId, onBack }: PollViewProps) {
                         {option.voteCount} {option.voteCount === 1 ? 'vote' : 'votes'}
                       </span>
                       {isOptionOwner && (
-                        <button
-                          onClick={() => handleDeleteOption(option.id)}
-                          className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
-                          title="Delete option"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <>
+                          <button
+                            onClick={() => startEditingOption(option.id, option.name)}
+                            className="p-1 text-gray-500 hover:bg-gray-100 rounded transition-colors"
+                            title="Edit option"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteOption(option.id)}
+                            className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
+                            title="Delete option"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
