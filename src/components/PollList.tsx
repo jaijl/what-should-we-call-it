@@ -16,10 +16,23 @@ interface PollWithStats extends Poll {
 export function PollList({ onCreateNew, onSelectPoll }: PollListProps) {
   const [polls, setPolls] = useState<PollWithStats[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
+    loadCurrentUser();
     loadPolls();
   }, []);
+
+  const loadCurrentUser = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+      }
+    } catch (error) {
+      console.error('Error loading current user:', error);
+    }
+  };
 
   const loadPolls = async () => {
     try {
@@ -53,8 +66,13 @@ export function PollList({ onCreateNew, onSelectPoll }: PollListProps) {
     }
   };
 
-  const handleDeletePoll = async (e: React.MouseEvent, pollId: string) => {
+  const handleDeletePoll = async (e: React.MouseEvent, pollId: string, userId: string | null) => {
     e.stopPropagation();
+
+    if (userId !== currentUserId) {
+      alert('Only the poll creator can delete this poll.');
+      return;
+    }
 
     if (!confirm('Delete this poll?')) return;
 
@@ -66,7 +84,7 @@ export function PollList({ onCreateNew, onSelectPoll }: PollListProps) {
       loadPolls();
     } catch (error) {
       console.error('Error deleting poll:', error);
-      alert('Failed to delete poll');
+      alert('Failed to delete poll. You can only delete polls you created.');
     }
   };
 
@@ -123,13 +141,15 @@ export function PollList({ onCreateNew, onSelectPoll }: PollListProps) {
                 >
                   <h3 className="text-lg font-semibold text-gray-900">{poll.title}</h3>
                 </button>
-                <button
-                  onClick={(e) => handleDeletePoll(e, poll.id)}
-                  className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                  title="Delete poll"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                {poll.user_id === currentUserId && (
+                  <button
+                    onClick={(e) => handleDeletePoll(e, poll.id, poll.user_id)}
+                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                    title="Delete poll"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
               <button
                 onClick={() => onSelectPoll(poll.id)}
