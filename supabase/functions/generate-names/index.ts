@@ -89,10 +89,19 @@ Example format: ["Name 1", "Name 2", "Name 3"]`;
     if (!response.ok) {
       const error = await response.text();
       console.error("OpenAI API error:", error);
+
+      let errorMessage = "Failed to call OpenAI API";
+      try {
+        const errorJson = JSON.parse(error);
+        errorMessage = errorJson.error?.message || errorMessage;
+      } catch {
+        errorMessage = error.substring(0, 200);
+      }
+
       return new Response(
-        JSON.stringify({ error: "Failed to generate names" }),
+        JSON.stringify({ error: `OpenAI API error: ${errorMessage}` }),
         {
-          status: 500,
+          status: response.status,
           headers: {
             ...corsHeaders,
             "Content-Type": "application/json",
