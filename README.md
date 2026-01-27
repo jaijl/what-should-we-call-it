@@ -118,6 +118,20 @@ This flow demonstrates the core create / read / update / delete functionality, a
 
 ---
 
+## ⚠️ Known Limitations & Tradeoffs
+
+- **Security audit warnings**
+  - Bolt surfaces several security warnings related to RLS policies, SECURITY DEFINER views, and mutable search paths on database functions.
+  - These were identified during development, but I was unable to apply Bolt’s automated fixes before running out of credits.
+  - Given the scope of this take-home (non-production, single-tenant demo app), these issues were not blockers for demonstrating core functionality, but they would be addressed before any real-world deployment.
+
+- **User display name**
+  - A display name is captured during sign-up and was working earlier in development.
+  - In the current deployed version, new users appear with the fallback name “User” when voting.
+  - This appears to be a regression introduced during later iteration and would be investigated and resolved with additional debugging time.
+
+---
+
 ## 🛠️ Tech & Implementation Notes
 
 - Built entirely using **Bolt**
