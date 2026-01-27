@@ -20,36 +20,20 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
     setError(null);
 
     try {
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: undefined, // Disable email confirmation
+          data: {
+            name: name,
+          },
         },
       });
 
       if (error) {
         setError(error.message);
-        return;
-      }
-
-      if (data.user) {
-        // Create profile for the user
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert([
-            {
-              id: data.user.id,
-              name: name,
-            },
-          ]);
-
-        if (profileError) {
-          console.error('Error creating profile:', profileError);
-          setError('Account created but profile setup failed. Please try logging in.');
-        } else {
-          onSuccess?.();
-        }
+      } else {
+        onSuccess?.();
       }
     } catch (err) {
       setError('An unexpected error occurred');
@@ -68,7 +52,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
 
       <div>
         <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-          Full Name
+          Name
         </label>
         <input
           id="name"
@@ -77,7 +61,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
           onChange={(e) => setName(e.target.value)}
           required
           className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          placeholder="Enter your full name"
+          placeholder="Enter your name"
         />
       </div>
 
