@@ -4,6 +4,11 @@ A lightweight collaborative naming app that helps teams and groups decide on nam
 
 This project was built as part of a CX Engineer take-home assessment to demonstrate how I explore, build, debug, and iterate inside Bolt.
 
+## 🚀 Live App
+
+👉 **Public app link:**  
+https://team-naming-poll-yk4g.bolt.host
+
 ---
 
 ## ✨ Overview
