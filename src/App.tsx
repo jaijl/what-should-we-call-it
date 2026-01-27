@@ -8,6 +8,10 @@ import { PollView } from './components/PollView';
 import { LogOut } from 'lucide-react';
 
 type View = 'list' | 'create' | 'view';
+import { LoginPage } from './pages/LoginPage';
+import { SignupPage } from './pages/SignupPage';
+import { SuccessPage } from './pages/SuccessPage';
+import { SubscriptionPage } from './pages/SubscriptionPage';
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -88,6 +92,10 @@ function App() {
           className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-gray-900 hover:bg-white rounded-lg transition-all"
         >
           <LogOut className="w-4 h-4" />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
+          <Route path="/success" element={<SuccessPage />} />
+          <Route path="/subscription" element={<SubscriptionPage />} />
           Sign Out
         </button>
       </div>
