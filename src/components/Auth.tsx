@@ -10,6 +10,7 @@ export function Auth({ onAuthSuccess }: AuthProps) {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,12 +28,27 @@ export function Auth({ onAuthSuccess }: AuthProps) {
 
         if (error) throw error;
       } else {
-        const { error } = await supabase.auth.signUp({
+        if (!name.trim()) {
+          throw new Error('Name is required');
+        }
+
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
         });
 
         if (error) throw error;
+
+        if (data.user) {
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .insert({
+              id: data.user.id,
+              name: name.trim(),
+            });
+
+          if (profileError) throw profileError;
+        }
       }
 
       onAuthSuccess();
@@ -60,6 +76,25 @@ export function Auth({ onAuthSuccess }: AuthProps) {
 
         <div className="bg-white rounded-2xl shadow-lg p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
+            {!isLogin && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Name
+                </label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Your name"
+                    required={!isLogin}
+                  />
+                </div>
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Email
@@ -115,6 +150,7 @@ export function Auth({ onAuthSuccess }: AuthProps) {
               onClick={() => {
                 setIsLogin(!isLogin);
                 setError(null);
+                setName('');
               }}
               className="text-blue-600 hover:text-blue-700 font-medium text-sm"
             >

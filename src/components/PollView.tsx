@@ -18,18 +18,37 @@ export function PollView({ pollId, onBack }: PollViewProps) {
   const [options, setOptions] = useState<OptionWithVotes[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasVoted, setHasVoted] = useState(false);
-  const [voterName, setVoterName] = useState('');
-  const [showNameInput, setShowNameInput] = useState(false);
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const [userName, setUserName] = useState('');
   const [newOptionName, setNewOptionName] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState('');
 
   useEffect(() => {
+    loadUserProfile();
     loadPollData();
     subscribeToVotes();
   }, [pollId]);
+
+  const loadUserProfile = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('name')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (profile) {
+          setUserName(profile.name);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading user profile:', error);
+    }
+  };
 
   const subscribeToVotes = () => {
     const channel = supabase
@@ -88,28 +107,16 @@ export function PollView({ pollId, onBack }: PollViewProps) {
       const { error } = await supabase.from('votes').insert({
         poll_id: pollId,
         option_id: optionId,
-        voter_name: voterName.trim() || null
+        voter_name: userName || null
       });
 
       if (error) throw error;
 
       setHasVoted(true);
-      setShowNameInput(false);
       loadPollData();
     } catch (error) {
       console.error('Error voting:', error);
       alert('Failed to record vote. Please try again.');
-    }
-  };
-
-  const initiateVote = (optionId: string) => {
-    setSelectedOption(optionId);
-    setShowNameInput(true);
-  };
-
-  const submitVote = () => {
-    if (selectedOption) {
-      handleVote(selectedOption);
     }
   };
 
@@ -285,12 +292,12 @@ export function PollView({ pollId, onBack }: PollViewProps) {
         </div>
 
         <div className="p-8">
-          {!hasVoted && !showNameInput && (
+          {!hasVoted && (
             <div className="space-y-3 mb-8">
               {options.map((option) => (
                 <button
                   key={option.id}
-                  onClick={() => initiateVote(option.id)}
+                  onClick={() => handleVote(option.id)}
                   className="w-full text-left px-6 py-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all group"
                 >
                   <div className="font-medium text-gray-900 group-hover:text-blue-700">
@@ -301,43 +308,9 @@ export function PollView({ pollId, onBack }: PollViewProps) {
             </div>
           )}
 
-          {showNameInput && !hasVoted && (
-            <div className="mb-8 p-6 bg-gray-50 rounded-xl">
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Add your name (optional)
-              </label>
-              <input
-                type="text"
-                value={voterName}
-                onChange={(e) => setVoterName(e.target.value)}
-                placeholder="Leave blank to vote anonymously"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4"
-                onKeyDown={(e) => e.key === 'Enter' && submitVote()}
-              />
-              <div className="flex gap-3">
-                <button
-                  onClick={submitVote}
-                  className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-all"
-                >
-                  Submit Vote
-                </button>
-                <button
-                  onClick={() => {
-                    setShowNameInput(false);
-                    setSelectedOption(null);
-                    setVoterName('');
-                  }}
-                  className="px-6 py-3 text-gray-700 hover:bg-gray-100 rounded-lg font-medium transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-
           {hasVoted && (
             <div className="mb-8 p-4 bg-green-50 border border-green-200 rounded-xl text-center text-green-800 font-medium">
-              Thanks for voting!
+              Thanks for voting, {userName}!
             </div>
           )}
 
