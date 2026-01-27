@@ -179,7 +179,7 @@ export function PollView({ pollId, onBack }: PollViewProps) {
     }
   };
 
-  const handleVote = useCallback(async (optionId: string) => {
+  const handleVote = async (optionId: string) => {
     if (myVotes.length >= 3) {
       alert('You can only vote for up to 3 options.');
       return;
@@ -202,14 +202,14 @@ export function PollView({ pollId, onBack }: PollViewProps) {
       }
 
       console.log('Vote created successfully:', data);
-      setMyVotes([...myVotes, optionId]);
+      await loadPollData();
     } catch (error: any) {
       console.error('Error voting:', error);
       alert(`Failed to record vote: ${error.message || 'Please try again.'}`);
     }
-  }, [myVotes, pollId, userName, currentUserId]);
+  };
 
-  const handleUnvote = useCallback(async (optionId: string) => {
+  const handleUnvote = async (optionId: string) => {
     try {
       const { error } = await supabase
         .from('votes')
@@ -220,12 +220,12 @@ export function PollView({ pollId, onBack }: PollViewProps) {
 
       if (error) throw error;
 
-      setMyVotes(myVotes.filter(id => id !== optionId));
+      await loadPollData();
     } catch (error) {
       console.error('Error removing vote:', error);
       alert('Failed to remove vote. Please try again.');
     }
-  }, [myVotes, pollId, currentUserId]);
+  };
 
   const handleAddOption = async () => {
     if (!newOptionName.trim()) return;
