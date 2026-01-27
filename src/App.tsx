@@ -15,15 +15,41 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    const initAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      (async () => {
-        setUser(session?.user ?? null);
-      })();
+        if (error) {
+          console.error('Session error:', error);
+          await supabase.auth.signOut();
+          setUser(null);
+        } else if (session) {
+          const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
+
+          if (userError || !currentUser) {
+            console.error('Invalid session, signing out');
+            await supabase.auth.signOut();
+            setUser(null);
+          } else {
+            setUser(currentUser);
+          }
+        } else {
+          setUser(null);
+        }
+      } catch (err) {
+        console.error('Auth initialization error:', err);
+        await supabase.auth.signOut();
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state changed:', event);
+      setUser(session?.user ?? null);
     });
 
     return () => subscription.unsubscribe();
