@@ -19,6 +19,8 @@ export function PollView({ pollId, onBack }: PollViewProps) {
   const [loading, setLoading] = useState(true);
   const [hasVoted, setHasVoted] = useState(false);
   const [userName, setUserName] = useState('');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isOwner, setIsOwner] = useState(false);
   const [newOptionName, setNewOptionName] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -30,11 +32,19 @@ export function PollView({ pollId, onBack }: PollViewProps) {
     subscribeToVotes();
   }, [pollId]);
 
+  useEffect(() => {
+    if (poll && currentUserId) {
+      setIsOwner(poll.user_id === currentUserId);
+    }
+  }, [poll, currentUserId]);
+
   const loadUserProfile = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (user) {
+        setCurrentUserId(user.id);
+
         const { data: profile } = await supabase
           .from('profiles')
           .select('name')
@@ -121,6 +131,10 @@ export function PollView({ pollId, onBack }: PollViewProps) {
   };
 
   const handleAddOption = async () => {
+    if (!isOwner) {
+      alert('Only the poll creator can add options.');
+      return;
+    }
     if (!newOptionName.trim()) return;
 
     try {
@@ -137,11 +151,15 @@ export function PollView({ pollId, onBack }: PollViewProps) {
       loadPollData();
     } catch (error) {
       console.error('Error adding option:', error);
-      alert('Failed to add option. Please try again.');
+      alert('Failed to add option. You can only add options to polls you created.');
     }
   };
 
   const handleDeleteOption = async (optionId: string) => {
+    if (!isOwner) {
+      alert('Only the poll creator can delete options.');
+      return;
+    }
     if (!confirm('Are you sure you want to delete this option?')) return;
 
     try {
@@ -155,11 +173,17 @@ export function PollView({ pollId, onBack }: PollViewProps) {
       loadPollData();
     } catch (error) {
       console.error('Error deleting option:', error);
-      alert('Failed to delete option. Please try again.');
+      alert('Failed to delete option. You can only delete options from polls you created.');
     }
   };
 
   const handleDeletePoll = async () => {
+    if (!isOwner) {
+      alert('Only the poll creator can delete this poll.');
+      setShowDeleteConfirm(false);
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('polls')
@@ -171,11 +195,15 @@ export function PollView({ pollId, onBack }: PollViewProps) {
       onBack();
     } catch (error) {
       console.error('Error deleting poll:', error);
-      alert('Failed to delete poll. Please try again.');
+      alert('Failed to delete poll. You can only delete polls you created.');
     }
   };
 
   const startEditingTitle = () => {
+    if (!isOwner) {
+      alert('Only the poll creator can edit this poll.');
+      return;
+    }
     if (poll) {
       setEditTitle(poll.title);
       setIsEditingTitle(true);
@@ -183,6 +211,10 @@ export function PollView({ pollId, onBack }: PollViewProps) {
   };
 
   const handleUpdateTitle = async () => {
+    if (!isOwner) {
+      alert('Only the poll creator can edit this poll.');
+      return;
+    }
     if (!editTitle.trim()) return;
 
     try {
@@ -198,7 +230,7 @@ export function PollView({ pollId, onBack }: PollViewProps) {
       loadPollData();
     } catch (error) {
       console.error('Error updating poll title:', error);
-      alert('Failed to update poll title. Please try again.');
+      alert('Failed to update poll title. You can only edit polls you created.');
     }
   };
 
@@ -267,22 +299,24 @@ export function PollView({ pollId, onBack }: PollViewProps) {
           ) : (
             <div className="flex justify-between items-start mb-2">
               <h1 className="text-2xl font-bold text-white flex-1">{poll.title}</h1>
-              <div className="flex gap-2">
-                <button
-                  onClick={startEditingTitle}
-                  className="p-2 text-white hover:bg-blue-600 rounded-lg transition-colors"
-                  title="Edit title"
-                >
-                  <Edit2 className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="p-2 text-white hover:bg-red-600 rounded-lg transition-colors"
-                  title="Delete poll"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
-              </div>
+              {isOwner && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={startEditingTitle}
+                    className="p-2 text-white hover:bg-blue-600 rounded-lg transition-colors"
+                    title="Edit title"
+                  >
+                    <Edit2 className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="p-2 text-white hover:bg-red-600 rounded-lg transition-colors"
+                    title="Delete poll"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+              )}
             </div>
           )}
           <div className="flex items-center gap-2 text-blue-100">
@@ -330,13 +364,15 @@ export function PollView({ pollId, onBack }: PollViewProps) {
                       <span className="text-sm text-gray-600">
                         {option.voteCount} {option.voteCount === 1 ? 'vote' : 'votes'}
                       </span>
-                      <button
-                        onClick={() => handleDeleteOption(option.id)}
-                        className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
-                        title="Delete option"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {isOwner && (
+                        <button
+                          onClick={() => handleDeleteOption(option.id)}
+                          className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
+                          title="Delete option"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                   <div className="relative w-full h-3 bg-gray-200 rounded-full overflow-hidden">
@@ -364,25 +400,27 @@ export function PollView({ pollId, onBack }: PollViewProps) {
               );
             })}
 
-            <div className="pt-4 border-t border-gray-200">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={newOptionName}
-                  onChange={(e) => setNewOptionName(e.target.value)}
-                  placeholder="Add new option..."
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  onKeyDown={(e) => e.key === 'Enter' && handleAddOption()}
-                />
-                <button
-                  onClick={handleAddOption}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add
-                </button>
+            {isOwner && (
+              <div className="pt-4 border-t border-gray-200">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newOptionName}
+                    onChange={(e) => setNewOptionName(e.target.value)}
+                    placeholder="Add new option..."
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddOption()}
+                  />
+                  <button
+                    onClick={handleAddOption}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

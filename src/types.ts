@@ -5,16 +5,19 @@ export interface Database {
         Row: {
           id: string;
           title: string;
+          user_id: string | null;
           created_at: string;
         };
         Insert: {
           id?: string;
           title: string;
+          user_id: string;
           created_at?: string;
         };
         Update: {
           id?: string;
           title?: string;
+          user_id?: string;
           created_at?: string;
         };
       };
@@ -61,6 +64,23 @@ export interface Database {
           created_at?: string;
         };
       };
+      profiles: {
+        Row: {
+          id: string;
+          name: string;
+          created_at: string;
+        };
+        Insert: {
+          id: string;
+          name: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          created_at?: string;
+        };
+      };
     };
   };
 }
@@ -68,3 +88,4 @@ export interface Database {
 export type Poll = Database['public']['Tables']['polls']['Row'];
 export type Option = Database['public']['Tables']['options']['Row'];
 export type Vote = Database['public']['Tables']['votes']['Row'];
+export type Profile = Database['public']['Tables']['profiles']['Row'];
