@@ -62,7 +62,7 @@ export function PollView({ pollId, onBack }: PollViewProps) {
   const loadPollData = async () => {
     try {
       const [pollResponse, optionsResponse, votesResponse] = await Promise.all([
-        supabase.from('polls').select('*').eq('id', pollId).single(),
+        supabase.from('polls').select('*').eq('id', pollId).maybeSingle(),
         supabase.from('options').select('*').eq('poll_id', pollId),
         supabase.from('votes').select('*').eq('poll_id', pollId)
       ]);
@@ -116,6 +116,80 @@ export function PollView({ pollId, onBack }: PollViewProps) {
   const submitVote = () => {
     if (selectedOption) {
       handleVote(selectedOption);
+    }
+  };
+
+  const handleUpdateTitle = async () => {
+    if (!editTitle.trim()) return;
+
+    try {
+      const { error } = await supabase
+        .from('polls')
+        .update({ title: editTitle.trim() })
+        .eq('id', pollId);
+
+      if (error) throw error;
+
+      setPoll(poll ? { ...poll, title: editTitle.trim() } : null);
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Error updating title:', error);
+      alert('Failed to update title. Please try again.');
+    }
+  };
+
+  const handleAddOption = async () => {
+    if (!newOptionName.trim()) return;
+
+    try {
+      const { error } = await supabase
+        .from('options')
+        .insert({
+          poll_id: pollId,
+          name: newOptionName.trim()
+        });
+
+      if (error) throw error;
+
+      setNewOptionName('');
+      loadPollData();
+    } catch (error) {
+      console.error('Error adding option:', error);
+      alert('Failed to add option. Please try again.');
+    }
+  };
+
+  const handleDeleteOption = async (optionId: string) => {
+    if (!confirm('Are you sure you want to delete this option?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('options')
+        .delete()
+        .eq('id', optionId);
+
+      if (error) throw error;
+
+      loadPollData();
+    } catch (error) {
+      console.error('Error deleting option:', error);
+      alert('Failed to delete option. Please try again.');
+    }
+  };
+
+  const handleDeletePoll = async () => {
+    try {
+      const { error } = await supabase
+        .from('polls')
+        .delete()
+        .eq('id', pollId);
+
+      if (error) throw error;
+
+      onBack();
+    } catch (error) {
+      console.error('Error deleting poll:', error);
+      alert('Failed to delete poll. Please try again.');
     }
   };
 
