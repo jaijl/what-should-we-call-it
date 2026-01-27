@@ -39,9 +39,19 @@ export function CreatePoll({ onPollCreated, onCancel }: CreatePollProps) {
     setIsSubmitting(true);
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        alert('You must be logged in to create a poll');
+        return;
+      }
+
       const { data: poll, error: pollError } = await supabase
         .from('polls')
-        .insert({ title: title.trim() })
+        .insert({
+          title: title.trim(),
+          user_id: user.id
+        })
         .select()
         .single();
 
