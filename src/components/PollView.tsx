@@ -136,10 +136,12 @@ export function PollView({ pollId, onBack }: PollViewProps) {
       );
 
       // Load individual votes with voter names
-      const { data: votesData } = await supabase
+      const { data: votesData, error: votesError } = await supabase
         .from('votes')
         .select('option_id, voter_name, user_id')
         .eq('poll_id', pollId);
+
+      console.log('Loaded votes:', votesData, 'Error:', votesError);
 
       if (votesData) {
         optionsList.forEach(option => {
@@ -153,6 +155,7 @@ export function PollView({ pollId, onBack }: PollViewProps) {
               user_id: v.user_id,
               created_at: ''
             }));
+          console.log(`Option "${option.name}" has ${option.votes.length} votes:`, option.votes);
         });
       }
 
@@ -182,20 +185,27 @@ export function PollView({ pollId, onBack }: PollViewProps) {
       return;
     }
 
+    console.log('Attempting to vote with:', { pollId, optionId, userName, currentUserId });
+
     try {
-      const { error } = await supabase.from('votes').insert({
+      const { data, error } = await supabase.from('votes').insert({
         poll_id: pollId,
         option_id: optionId,
         voter_name: userName || null,
         user_id: currentUserId
-      });
+      }).select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Vote error:', error);
+        alert(`Failed to record vote: ${error.message}`);
+        return;
+      }
 
+      console.log('Vote created successfully:', data);
       setMyVotes([...myVotes, optionId]);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error voting:', error);
-      alert('Failed to record vote. Please try again.');
+      alert(`Failed to record vote: ${error.message || 'Please try again.'}`);
     }
   }, [myVotes, pollId, userName, currentUserId]);
 
