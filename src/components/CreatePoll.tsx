@@ -63,7 +63,8 @@ export function CreatePoll({ onPollCreated, onCancel }: CreatePollProps) {
         .insert(
           validOptions.map(name => ({
             poll_id: poll.id,
-            name: name.trim()
+            name: name.trim(),
+            user_id: user.id
           }))
         );
 
