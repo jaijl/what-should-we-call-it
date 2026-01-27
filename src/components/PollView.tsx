@@ -123,15 +123,21 @@ export function PollView({ pollId, onBack }: PollViewProps) {
     if (!editTitle.trim()) return;
 
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('polls')
         .update({ title: editTitle.trim() })
-        .eq('id', pollId);
+        .eq('id', pollId)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Update error:', error);
+        throw error;
+      }
 
+      console.log('Update successful:', data);
       setPoll(poll ? { ...poll, title: editTitle.trim() } : null);
       setIsEditing(false);
+      loadPollData();
     } catch (error) {
       console.error('Error updating title:', error);
       alert('Failed to update title. Please try again.');
