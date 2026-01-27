@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, User, Users, Trash2, Plus } from 'lucide-react';
+import { ArrowLeft, User, Users, Trash2, Plus, Edit2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import type { Poll, Option, Vote } from '../types';
+import { Poll, Option, Vote } from '../types';
 
 interface PollViewProps {
   pollId: string;
@@ -23,6 +23,8 @@ export function PollView({ pollId, onBack }: PollViewProps) {
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [newOptionName, setNewOptionName] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
 
   useEffect(() => {
     loadPollData();
@@ -166,6 +168,33 @@ export function PollView({ pollId, onBack }: PollViewProps) {
     }
   };
 
+  const startEditingTitle = () => {
+    if (poll) {
+      setEditTitle(poll.title);
+      setIsEditingTitle(true);
+    }
+  };
+
+  const handleUpdateTitle = async () => {
+    if (!editTitle.trim()) return;
+
+    try {
+      const { error } = await supabase
+        .from('polls')
+        .update({ title: editTitle.trim() })
+        .eq('id', pollId);
+
+      if (error) throw error;
+
+      setIsEditingTitle(false);
+      setEditTitle('');
+      loadPollData();
+    } catch (error) {
+      console.error('Error updating poll title:', error);
+      alert('Failed to update poll title. Please try again.');
+    }
+  };
+
   const totalVotes = options.reduce((sum, opt) => sum + opt.voteCount, 0);
 
   if (loading) {
@@ -200,16 +229,55 @@ export function PollView({ pollId, onBack }: PollViewProps) {
 
       <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
         <div className="bg-gradient-to-r from-blue-500 to-cyan-500 px-8 py-6">
-          <div className="flex justify-between items-start mb-2">
-            <h1 className="text-2xl font-bold text-white flex-1">{poll.title}</h1>
-            <button
-              onClick={() => setShowDeleteConfirm(true)}
-              className="p-2 text-white hover:bg-red-600 rounded-lg transition-colors"
-              title="Delete poll"
-            >
-              <Trash2 className="w-5 h-5" />
-            </button>
-          </div>
+          {isEditingTitle ? (
+            <div className="mb-2">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="flex-1 px-4 py-2 rounded-lg text-gray-900 focus:ring-2 focus:ring-white focus:outline-none"
+                  onKeyDown={(e) => e.key === 'Enter' && handleUpdateTitle()}
+                  autoFocus
+                />
+                <button
+                  onClick={handleUpdateTitle}
+                  className="px-4 py-2 bg-white text-blue-600 rounded-lg font-medium hover:bg-blue-50 transition-colors"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => {
+                    setIsEditingTitle(false);
+                    setEditTitle('');
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white border border-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex justify-between items-start mb-2">
+              <h1 className="text-2xl font-bold text-white flex-1">{poll.title}</h1>
+              <div className="flex gap-2">
+                <button
+                  onClick={startEditingTitle}
+                  className="p-2 text-white hover:bg-blue-600 rounded-lg transition-colors"
+                  title="Edit title"
+                >
+                  <Edit2 className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="p-2 text-white hover:bg-red-600 rounded-lg transition-colors"
+                  title="Delete poll"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          )}
           <div className="flex items-center gap-2 text-blue-100">
             <Users className="w-4 h-4" />
             <span className="text-sm">{totalVotes} {totalVotes === 1 ? 'vote' : 'votes'}</span>
