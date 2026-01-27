@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
-import { ArrowLeft, Plus, CreditCard as Edit2, Trash2, Users } from 'lucide-react';
+import { ArrowLeft, Plus, Edit2, Trash2, Users } from 'lucide-react';
 
 interface PollData {
   poll_id: string;
@@ -67,7 +67,8 @@ export function PollDetailPage() {
             id,
             name,
             created_at,
-            user_id
+            user_id,
+            votes (count)
           )
         `)
         .eq('id', id!)
@@ -78,31 +79,28 @@ export function PollDetailPage() {
       if (data) {
         setPoll(data);
         
-        // Get vote counts for each option
-        const { data: voteCounts } = await supabase
-          .from('votes')
-          .select('option_id')
-          .eq('poll_id', data.id);
-
-        const voteCountMap = new Map<string, number>();
-        voteCounts?.forEach((vote) => {
-          voteCountMap.set(vote.option_id, (voteCountMap.get(vote.option_id) || 0) + 1);
-        });
-
-        // Check which options the user has voted for
-        const { data: userVotes } = await supabase
-          .from('votes')
-          .select('option_id')
-          .eq('poll_id', data.id)
-          .eq('user_id', user!.id);
-
-        const userVoteSet = new Set(userVotes?.map(v => v.option_id) || []);
-
+        // Process options with vote counts
         const optionsWithVotes = data.options.map((option: any) => ({
           ...option,
-          vote_count: voteCountMap.get(option.id) || 0,
-          hasVoted: userVoteSet.has(option.id),
+          vote_count: option.votes.length,
+          hasVoted: false,
         }));
+
+        // Check which options the user has voted for
+        if (poll) {
+          const { data: userVotes } = await supabase
+            .from('votes')
+            .select('option_id')
+            .eq('poll_id', poll.id)
+            .eq('user_id', user!.id);
+
+          if (userVotes) {
+            const votedOptionIds = new Set(userVotes.map(vote => vote.option_id));
+            optionsWithVotes.forEach((option: Option) => {
+              option.hasVoted = votedOptionIds.has(option.id);
+            });
+          }
+        }
 
         setOptions(optionsWithVotes);
       }
@@ -123,7 +121,7 @@ export function PollDetailPage() {
         .from('votes')
         .insert([
           {
-            poll_id: poll.id,
+            poll_id: poll!.id,
             option_id: optionId,
             user_id: user!.id,
           },
@@ -131,6 +129,7 @@ export function PollDetailPage() {
 
       if (error) throw error;
 
+      // Refresh poll data
       await fetchPollDetails();
     } catch (error) {
       console.error('Error voting:', error);
@@ -153,6 +152,7 @@ export function PollDetailPage() {
 
       if (error) throw error;
 
+      // Refresh poll data
       await fetchPollDetails();
     } catch (error) {
       console.error('Error removing vote:', error);
@@ -171,7 +171,7 @@ export function PollDetailPage() {
         .from('options')
         .insert([
           {
-            poll_id: poll.id,
+            poll_id: poll!.id,
             name: newOption.trim(),
             user_id: user!.id,
           },
@@ -256,16 +256,6 @@ export function PollDetailPage() {
               <span>Created {new Date(poll.created_at).toLocaleDateString()}</span>
             </div>
           </div>
-          
-          {canEditPoll() && (
-            <Link
-              to={`/polls/${poll.id}/edit`}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              <Edit2 className="h-4 w-4 mr-2" />
-              Edit Poll
-            </Link>
-          )}
         </div>
       </div>
 
@@ -306,37 +296,38 @@ export function PollDetailPage() {
                       </div>
                     </div>
                     
-                    <div className="mt-2">
-                      <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
+                    <div className="mt-3">
+                      <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
                         <span>{option.vote_count} {option.vote_count === 1 ? 'vote' : 'votes'}</span>
                         <span>{percentage.toFixed(1)}%</span>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
+                      
+                      <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
                         <div
                           className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
                           style={{ width: `${percentage}%` }}
                         ></div>
                       </div>
-                    </div>
-                    
-                    <div className="mt-3">
-                      {option.hasVoted ? (
-                        <button
-                          onClick={() => handleUnvote(option.id)}
-                          disabled={voting === option.id}
-                          className="w-full px-4 py-2 border border-indigo-600 text-indigo-600 rounded-md hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {voting === option.id ? 'Removing vote...' : 'Remove Vote'}
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleVote(option.id)}
-                          disabled={voting === option.id}
-                          className="w-full px-4 py-2 border border-transparent text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {voting === option.id ? 'Voting...' : 'Vote'}
-                        </button>
-                      )}
+                      
+                      <div className="flex justify-end">
+                        {option.hasVoted ? (
+                          <button
+                            onClick={() => handleUnvote(option.id)}
+                            disabled={voting === option.id}
+                            className="px-4 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-md hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+                          >
+                            {voting === option.id ? 'Removing...' : 'Remove Vote'}
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleVote(option.id)}
+                            disabled={voting === option.id}
+                            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+                          >
+                            {voting === option.id ? 'Voting...' : 'Vote'}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
