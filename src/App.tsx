@@ -1,84 +1,94 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { User } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
-import { LoginPage } from './pages/LoginPage';
-import { SignupPage } from './pages/SignupPage';
-import { SuccessPage } from './pages/SuccessPage';
-import { SubscriptionPage } from './pages/SubscriptionPage';
-import { PollListPage } from './pages/PollListPage';
-import { CreatePollPage } from './pages/CreatePollPage';
-import { PollDetailPage } from './pages/PollDetailPage';
+import { Auth } from './components/Auth';
+import { PollList } from './components/PollList';
+import { CreatePoll } from './components/CreatePoll';
+import { PollView } from './components/PollView';
+import { LogOut } from 'lucide-react';
+
+type View = 'list' | 'create' | 'view';
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [currentView, setCurrentView] = useState<View>('list');
+  const [selectedPollId, setSelectedPollId] = useState<string | null>(null);
+  const [listKey, setListKey] = useState(0);
 
   useEffect(() => {
-    const initAuth = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-
-        if (error) {
-          console.error('Session error:', error);
-          await supabase.auth.signOut();
-          setUser(null);
-        } else if (session) {
-          const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
-
-          if (userError || !currentUser) {
-            console.error('Invalid session, signing out');
-            await supabase.auth.signOut();
-            setUser(null);
-          } else {
-            setUser(currentUser);
-          }
-        } else {
-          setUser(null);
-        }
-      } catch (err) {
-        console.error('Auth initialization error:', err);
-        await supabase.auth.signOut();
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    initAuth();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth state changed:', event);
+    supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      (async () => {
+        setUser(session?.user ?? null);
+      })();
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
+  const handleCreateNew = () => {
+    setCurrentView('create');
+  };
+
+  const handlePollCreated = (pollId: string) => {
+    setSelectedPollId(pollId);
+    setCurrentView('view');
+  };
+
+  const handleSelectPoll = (pollId: string) => {
+    setSelectedPollId(pollId);
+    setCurrentView('view');
+  };
+
+  const handleBackToList = () => {
+    setCurrentView('list');
+    setSelectedPollId(null);
+    setListKey(prev => prev + 1);
+  };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-600 border-t-transparent mx-auto"></div>
-          <p className="mt-4 text-gray-600 font-medium">Loading...</p>
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+        <div className="text-gray-600">Loading...</div>
       </div>
     );
   }
 
+  if (!user) {
+    return <Auth onAuthSuccess={() => {}} />;
+  }
+
   return (
-    <Router>
-      <Routes>
-        <Route path="/login" element={!user ? <LoginPage /> : <Navigate to="/" replace />} />
-        <Route path="/signup" element={!user ? <SignupPage /> : <Navigate to="/" replace />} />
-        <Route path="/success" element={user ? <SuccessPage /> : <Navigate to="/login" replace />} />
-        <Route path="/subscription" element={user ? <SubscriptionPage /> : <Navigate to="/login" replace />} />
-        <Route path="/" element={user ? <PollListPage /> : <Navigate to="/login" replace />} />
-        <Route path="/create" element={user ? <CreatePollPage /> : <Navigate to="/login" replace />} />
-        <Route path="/poll/:id" element={user ? <PollDetailPage /> : <Navigate to="/login" replace />} />
-        <Route path="*" element={<Navigate to={user ? "/" : "/login"} replace />} />
-      </Routes>
-    </Router>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-12 px-4">
+      <div className="max-w-7xl mx-auto mb-6 flex justify-end">
+        <button
+          onClick={handleSignOut}
+          className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-gray-900 hover:bg-white rounded-lg transition-all"
+        >
+          <LogOut className="w-4 h-4" />
+          Sign Out
+        </button>
+      </div>
+
+      {currentView === 'list' && (
+        <PollList key={listKey} onCreateNew={handleCreateNew} onSelectPoll={handleSelectPoll} />
+      )}
+      {currentView === 'create' && (
+        <CreatePoll onPollCreated={handlePollCreated} onCancel={handleBackToList} />
+      )}
+      {currentView === 'view' && selectedPollId && (
+        <PollView pollId={selectedPollId} onBack={handleBackToList} />
+      )}
+    </div>
   );
 }
 
