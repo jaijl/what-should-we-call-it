@@ -126,7 +126,7 @@ export function PollView({ pollId, onBack }: PollViewProps) {
             name: row.option_name,
             created_at: row.option_created_at,
             updated_at: row.option_created_at,
-            user_id: null,
+            user_id: row.option_user_id,
             voteCount: Number(row.vote_count),
             votes: []
           });
