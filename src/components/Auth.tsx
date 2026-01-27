@@ -67,7 +67,7 @@ export const Auth = memo(function Auth({ onAuthSuccess }: AuthProps) {
             <User className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Welcome to WhatShouldWeCallIt
+            WhatShouldWeCallit
           </h1>
           <p className="text-gray-600">
             {isLogin ? 'Sign in to continue' : 'Create your account'}
