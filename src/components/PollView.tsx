@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { ArrowLeft, User, Users, Trash2, Plus, Edit2, X } from 'lucide-react';
+import { ArrowLeft, User, Users, Trash2, Plus, Edit2, X, Sparkles } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Poll, Option, Vote } from '../types';
 
@@ -27,6 +27,7 @@ export function PollView({ pollId, onBack }: PollViewProps) {
   const [editTitle, setEditTitle] = useState('');
   const [editingOptionId, setEditingOptionId] = useState<string | null>(null);
   const [editOptionName, setEditOptionName] = useState('');
+  const [isGeneratingNames, setIsGeneratingNames] = useState(false);
 
   useEffect(() => {
     loadUserProfile();
@@ -351,6 +352,70 @@ export function PollView({ pollId, onBack }: PollViewProps) {
     }
   };
 
+  const handleGenerateNames = async () => {
+    const currentTitle = poll?.title || '';
+
+    if (!currentTitle.trim()) {
+      alert('Please enter a poll title first.');
+      return;
+    }
+
+    setIsGeneratingNames(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        alert('You must be logged in to generate names.');
+        return;
+      }
+
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-names`;
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          currentTitle,
+          count: 5
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate names');
+      }
+
+      const { names } = await response.json();
+
+      if (!names || !Array.isArray(names) || names.length === 0) {
+        alert('No names were generated. Please try again.');
+        return;
+      }
+
+      const insertPromises = names.map(name =>
+        supabase.from('options').insert({
+          poll_id: pollId,
+          name: name.trim(),
+          user_id: currentUserId
+        })
+      );
+
+      await Promise.all(insertPromises);
+      await loadPollData();
+
+      alert(`Successfully added ${names.length} AI-generated name suggestions!`);
+    } catch (error: any) {
+      console.error('Error generating names:', error);
+      alert(`Failed to generate names: ${error.message || 'Please try again.'}`);
+    } finally {
+      setIsGeneratingNames(false);
+    }
+  };
+
   const totalVotes = useMemo(
     () => options.reduce((sum, opt) => sum + opt.voteCount, 0),
     [options]
@@ -421,6 +486,18 @@ export function PollView({ pollId, onBack }: PollViewProps) {
               <h1 className="text-2xl font-bold text-white flex-1">{poll.title}</h1>
               {isOwner && (
                 <div className="flex gap-2">
+                  <button
+                    onClick={handleGenerateNames}
+                    disabled={isGeneratingNames}
+                    className="p-2 text-white hover:bg-blue-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Generate name suggestions with AI"
+                  >
+                    {isGeneratingNames ? (
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Sparkles className="w-5 h-5" />
+                    )}
+                  </button>
                   <button
                     onClick={startEditingTitle}
                     className="p-2 text-white hover:bg-blue-600 rounded-lg transition-colors"
