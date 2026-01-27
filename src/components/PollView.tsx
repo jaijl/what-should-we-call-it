@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, User, Users, Trash2, Plus, Edit2 } from 'lucide-react';
+import { ArrowLeft, User, Users, Trash2, Plus, Edit2, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Poll, Option, Vote } from '../types';
 
@@ -124,46 +124,45 @@ export function PollView({ pollId, onBack }: PollViewProps) {
   };
 
   const handleVote = async (optionId: string) => {
-    const isAlreadyVoted = myVotes.includes(optionId);
+    if (myVotes.length >= 3) {
+      alert('You can only vote for up to 3 options.');
+      return;
+    }
 
-    if (isAlreadyVoted) {
-      try {
-        const { error } = await supabase
-          .from('votes')
-          .delete()
-          .eq('poll_id', pollId)
-          .eq('option_id', optionId)
-          .eq('user_id', currentUserId);
+    try {
+      const { error } = await supabase.from('votes').insert({
+        poll_id: pollId,
+        option_id: optionId,
+        voter_name: userName || null,
+        user_id: currentUserId
+      });
 
-        if (error) throw error;
+      if (error) throw error;
 
-        setMyVotes(myVotes.filter(id => id !== optionId));
-        loadPollData();
-      } catch (error) {
-        console.error('Error removing vote:', error);
-        alert('Failed to remove vote. Please try again.');
-      }
-    } else {
-      if (myVotes.length >= 3) {
-        alert('You can only vote for up to 3 options.');
-        return;
-      }
+      setMyVotes([...myVotes, optionId]);
+      loadPollData();
+    } catch (error) {
+      console.error('Error voting:', error);
+      alert('Failed to record vote. Please try again.');
+    }
+  };
 
-      try {
-        const { error } = await supabase.from('votes').insert({
-          poll_id: pollId,
-          option_id: optionId,
-          voter_name: userName || null
-        });
+  const handleUnvote = async (optionId: string) => {
+    try {
+      const { error } = await supabase
+        .from('votes')
+        .delete()
+        .eq('poll_id', pollId)
+        .eq('option_id', optionId)
+        .eq('user_id', currentUserId);
 
-        if (error) throw error;
+      if (error) throw error;
 
-        setMyVotes([...myVotes, optionId]);
-        loadPollData();
-      } catch (error) {
-        console.error('Error voting:', error);
-        alert('Failed to record vote. Please try again.');
-      }
+      setMyVotes(myVotes.filter(id => id !== optionId));
+      loadPollData();
+    } catch (error) {
+      console.error('Error removing vote:', error);
+      alert('Failed to remove vote. Please try again.');
     }
   };
 
@@ -372,20 +371,35 @@ export function PollView({ pollId, onBack }: PollViewProps) {
             {options.map((option) => {
               const isVoted = myVotes.includes(option.id);
               return (
-                <button
+                <div
                   key={option.id}
-                  onClick={() => handleVote(option.id)}
-                  className={`w-full text-left px-6 py-4 border-2 rounded-xl transition-all group ${
+                  className={`w-full px-6 py-4 border-2 rounded-xl transition-all flex items-center justify-between ${
                     isVoted
                       ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-blue-500 hover:bg-blue-50'
+                      : 'border-gray-200'
                   }`}
                 >
-                  <div className={`font-medium ${isVoted ? 'text-blue-700' : 'text-gray-900 group-hover:text-blue-700'}`}>
+                  <div className={`font-medium ${isVoted ? 'text-blue-700' : 'text-gray-900'}`}>
                     {option.name}
                     {isVoted && <span className="ml-2 text-sm">✓</span>}
                   </div>
-                </button>
+                  {isVoted ? (
+                    <button
+                      onClick={() => handleUnvote(option.id)}
+                      className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors flex items-center gap-1"
+                    >
+                      <X className="w-4 h-4" />
+                      Unvote
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleVote(option.id)}
+                      className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 transition-colors"
+                    >
+                      Vote
+                    </button>
+                  )}
+                </div>
               );
             })}
           </div>
