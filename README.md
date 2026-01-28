@@ -7,7 +7,7 @@ This project was built as part of a CX Engineer take-home assessment to demonstr
 ## 🚀 Live App
 
 👉 **Public app link:**  
-https://team-naming-poll-yk4g.bolt.host
+https://what-should-we-call-it.bolt.host
 
 ---
 
