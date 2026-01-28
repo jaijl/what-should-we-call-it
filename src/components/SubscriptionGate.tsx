@@ -2,6 +2,8 @@ import { Crown } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useState } from 'react';
 
+export const config = { runtime: 'edge', verify_jwt: false }
+
 interface SubscriptionGateProps {
   pollsCreated: number;
   onCancel: () => void;
