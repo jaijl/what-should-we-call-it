@@ -34,6 +34,8 @@ export function SubscriptionGate({ pollsCreated, onCancel }: SubscriptionGatePro
       const { data, error } = await supabase.functions.invoke(
         'stripe-checkout',
       )
+
+      console.log('Frontend Supabase URL:', import.meta.env.VITE_SUPABASE_URL)
       
       if (error) throw error
 
