@@ -20,16 +20,25 @@ export function SubscriptionGate({ pollsCreated, onCancel }: SubscriptionGatePro
         return;
       }
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stripe-checkout`,
+      // const response = await fetch(
+      //   `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stripe-checkout`,
+      //   {
+      //     method: 'POST',
+      //     headers: {
+      //       'Authorization': `Bearer ${session.access_token}`,
+      //       'Content-Type': 'application/json',
+      //     },
+      //   }
+      // );
+
+      const { data, error } = await supabase.functions.invoke(
+        'stripe-checkout',
         {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
+          body: { priceId },
         }
-      );
+      )
+      
+      if (error) throw error
 
       if (!response.ok) {
         throw new Error('Failed to create checkout session');
