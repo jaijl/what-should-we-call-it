@@ -135,6 +135,10 @@ This flow demonstrates the core create / read / update / delete functionality, a
   - In the current deployed version, new users appear with the fallback name “User” when voting.
   - This appears to be a regression introduced during later iteration and would be investigated and resolved with additional debugging time.
 
+- **Stripe subscription (almost complete)**
+  - I implemented the Stripe checkout flow and Edge Function, but ran into a 401 authentication issue during checkout that I wasn’t able to fully resolve before running out of Bolt credits.
+  - The remaining work here would be finalising auth between the client and the Supabase Edge Function so the checkout session can be created successfully.
+
 ---
 
 ## 🛠️ Tech & Implementation Notes
