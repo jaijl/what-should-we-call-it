@@ -33,9 +33,6 @@ export function SubscriptionGate({ pollsCreated, onCancel }: SubscriptionGatePro
 
       const { data, error } = await supabase.functions.invoke(
         'stripe-checkout',
-        {
-          body: { priceId },
-        }
       )
       
       if (error) throw error
