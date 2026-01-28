@@ -31,6 +31,11 @@ Deno.serve(async (req: Request) => {
       data: { user },
     } = await supabaseClient.auth.getUser();
 
+    export const config = {
+      runtime: 'edge',
+      verify_jwt: false,
+    }
+
     if (!user) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
